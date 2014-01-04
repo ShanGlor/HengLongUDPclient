@@ -1,0 +1,21 @@
+# depslib dependency file v1.0
+1388607752 source:/home/stefan/Proj/UDPclient/main.c
+	<pthread.h>
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	<fcntl.h>
+	<dirent.h>
+	<linux/input.h>
+	<sys/types.h>
+	<sys/stat.h>
+	<sys/select.h>
+	<sys/time.h>
+	<termios.h>
+	<signal.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<stdio.h>
+
