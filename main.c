@@ -14,7 +14,8 @@
 #include <sys/time.h>
 #include <termios.h>
 #include <signal.h>
-
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 typedef struct input_thread_t
 {
@@ -62,7 +63,6 @@ void *input_thread_fcn(void * arg)
     pthread_exit(0);
 }
 
-
 int CRC(int data)
 {
   int c;
@@ -94,18 +94,177 @@ int values2data(int velocity, int direction, int ignation, int mg, int fire, int
     return data;
 }
 
+typedef struct henglong_t
+{
+    int velocity, direction;
+    int ignation, mg, fire, turretelev, turret_left, turret_right, recoil;
+} henglong_t;
+
+void inithenglong(henglong_t* henglong)
+{
+    henglong->velocity     = 0b10000;
+    henglong->direction    = 0b01111;
+    henglong->ignation     =       0;
+    henglong->mg           =       0;
+    henglong->fire         =       0;
+    henglong->turretelev   =       0;
+    henglong->turret_left  =       0;
+    henglong->turret_right =       0;
+    henglong->recoil       =       0;
+}
+
+
+int event2data(henglong_t* henglong, struct input_event event)
+{
+        if(108==event.code){
+            if(event.value){
+                henglong->velocity = 0b11111;
+            }else{
+                henglong->velocity = 0b10000;
+            }
+        }
+        if(103==event.code){
+            if(event.value){
+                henglong->velocity = 0b00000;
+            }else{
+                henglong->velocity = 0b10000;
+            }
+        }
+        if(105==event.code){
+            if(event.value){
+                henglong->direction = 0b00000;
+            }else{
+                henglong->direction = 0b01111;
+            }
+        }
+        if(106==event.code){
+            if(event.value){
+                henglong->direction = 0b11111;
+            }else{
+                henglong->direction = 0b01111;
+            }
+        }
+        if(23==event.code){
+            if(event.value){
+                henglong->ignation = 1;
+            }else{
+                henglong->ignation = 0;
+            }
+        }
+        if(34==event.code){
+            if(event.value){
+                henglong->mg = 1;
+            }else{
+                henglong->mg = 0;
+            }
+        }
+        if(33==event.code){
+            if(event.value){
+                henglong->fire = 1;
+            }else{
+                henglong->fire = 0;
+            }
+        }
+        if(29==event.code){
+            if(event.value){
+                henglong->turret_left = 1;
+            }else{
+                henglong->turret_left = 0;
+            }
+        }
+        if(20==event.code){
+            if(event.value){
+                henglong->turretelev = 1;
+            }else{
+                henglong->turretelev = 0;
+            }
+        }
+        if(19==event.code){
+            if(event.value){
+                henglong->recoil = 1;
+            }else{
+                henglong->recoil = 0;
+            }
+        }
+
+    return values2data(henglong->velocity, henglong->direction, henglong->ignation, henglong->mg, henglong->fire, henglong->turretelev, henglong->turret_left, henglong->turret_right, henglong->recoil);
+}
+
+typedef struct refl_thread_args_t
+{
+    int sockfd;
+    uint64_t timestamps[256];
+    uint16_t frame_nbr_send;
+} refl_thread_args_t;
+
+
+uint64_t get_us(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    return (uint64_t)tv.tv_usec + 1000000* (uint64_t)tv.tv_sec;
+}
+
+void *refl_thread_fcn(void* arg)
+{
+    int n, i = 0;
+    int frame_refl;
+    uint64_t time_us_refl;
+    unsigned char recvline[64];
+    uint16_t frame_nbr_refl;
+    refl_thread_args_t* refl_thread_args_ptr;
+    printf("pthread refl started\n");
+
+    refl_thread_args_ptr = (refl_thread_args_t*) arg;
+
+    while(1){
+        n=recvfrom(refl_thread_args_ptr->sockfd,recvline,64,0,NULL,NULL);
+        frame_nbr_refl = 0;
+        for(i=0;i<2;i++){
+            frame_nbr_refl |= recvline[i] << i*8;
+        }
+        time_us_refl = 0ULL;
+        for(i=0;i<8;i++){
+            time_us_refl |= ((uint64_t)recvline[i+2]) << i*8;
+        }
+        frame_refl = 0;
+        for(i=0;i<4;i++){
+            frame_refl |= recvline[i+10] << i*8;
+        }
+        printf("REFL FRAME -- FRM_NBR: %5d, RTT: %7llu, BYTES recv: %3d, REFL_FRM: %#x\n", frame_nbr_refl, get_us() - time_us_refl, n, frame_refl);
+        refl_thread_args_ptr->timestamps[frame_nbr_refl&0x0F] = 0;
+    }
+    pthread_exit(0);
+}
+
+
 int main(int argc, char* argv[])
 {
-    pthread_t inpthread;
+    pthread_t inpthread, refl_thread;
     pthread_attr_t inp_thread_attr;
     input_thread_t input_thread_args;
+    refl_thread_args_t refl_thread_args;
     int inpdetachstate;
     int i=0;
     int frame;
+    uint16_t frame_nbr;
+    uint16_t frame_nbr_refl;
 
     int velocity = 0b10000, direction=0b01111;
-    int ignation = 0, mg = 0, fire = 0, turretelev = 0, turret_left = 0, turret_right = 0, recoil = 0, smoke = 0;
+    int ignation = 0, mg = 0, fire = 0, turretelev = 0, turret_left = 0, turret_right = 0, recoil = 0;
 
+
+    int sockfd,n, n_send;
+    struct sockaddr_in servaddr,cliaddr;
+    unsigned char sendline[64];
+    unsigned char recvline[64];
+    unsigned char tmpchr;
+    henglong_t hl1;
+
+    uint64_t time_us, time_us_refl;
+    int frame_refl;
+
+    inithenglong(&hl1);
 
     input_thread_args.filename = argv[1];
 
@@ -114,82 +273,48 @@ int main(int argc, char* argv[])
     if (pthread_create(&inpthread, &inp_thread_attr, input_thread_fcn , (void *) &input_thread_args)) printf("failed to create thread %d\n", i);
 
 
+    sockfd = socket(AF_INET,SOCK_DGRAM,0);
+
+    refl_thread_args.sockfd = sockfd;
+
+    bzero(&servaddr,sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr=inet_addr(argv[2]);
+    servaddr.sin_port=htons(32000);
+
+    if (pthread_create(&refl_thread, NULL, refl_thread_fcn, (void *) &refl_thread_args)) printf("failed to create thread %d\n", i);
+
+    memset(refl_thread_args.timestamps, 0, 256);
+    frame_nbr = 0;
     while(1){
         usleep(100000);
-        printf("%d %d %d %d %d %d %d %d %d %d | %d %d %d %d\n", velocity, direction, ignation, mg, fire, turret_left, turret_right, turretelev, recoil, smoke, input_thread_args.event.code, input_thread_args.event.value, input_thread_args.event.type, input_thread_args.event.time);
-        if(108==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                velocity = 0b11111;
-            }else{
-                velocity = 0b10000;
-            }
+        //printf("%d %d %d %d %d %d %d %d %d | %d %d %d %d\n", velocity, direction, ignation, mg, fire, turret_left, turret_right, turretelev, recoil, input_thread_args.event.code, input_thread_args.event.value, input_thread_args.event.type, input_thread_args.event.time);
+
+        frame = data2frame(event2data(&hl1, input_thread_args.event));
+        time_us = get_us();
+        frame_nbr++;
+        refl_thread_args.frame_nbr_send = frame_nbr;
+        if(refl_thread_args.timestamps[frame_nbr & 0x0F]) printf("*** Frameloss detected! Lost frame from local time: %llu \n", refl_thread_args.timestamps[frame_nbr & 0x0F]);
+        refl_thread_args.timestamps[frame_nbr & 0x0F] = time_us;
+
+        for(i=0;i<2;i++){
+            sendline[i] = (frame_nbr >> i*8) & 0xFF;
         }
-        if(103==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                velocity = 0b00000;
-            }else{
-                velocity = 0b10000;
-            }
+        for(i=0;i<8;i++){
+            sendline[i+2] = (time_us >> i*8) & 0xFF;
         }
-        if(105==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                direction = 0b00000;
-            }else{
-                direction = 0b01111;
-            }
-        }
-        if(106==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                direction = 0b11111;
-            }else{
-                direction = 0b01111;
-            }
-        }
-        if(23==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                ignation = 1;
-            }else{
-                ignation = 0;
-            }
-        }
-        if(34==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                mg = 1;
-            }else{
-                mg = 0;
-            }
-        }
-        if(33==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                fire = 1;
-            }else{
-                fire = 0;
-            }
-        }
-        if(29==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                turret_left = 1;
-            }else{
-                turret_left = 0;
-            }
-        }
-        if(20==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                turretelev = 1;
-            }else{
-                turretelev = 0;
-            }
-        }
-        if(19==input_thread_args.event.code){
-            if(input_thread_args.event.value){
-                recoil = 1;
-            }else{
-                recoil = 0;
-            }
+        for(i=0;i<4;i++){
+            sendline[i+10] = (frame >> i*8) & 0xFF;
         }
 
-        frame = data2frame(values2data(velocity, direction, ignation, mg, fire, turretelev, turret_left, turret_right, recoil));
-        printf("%#x\n", frame);
+
+        n_send = sendto(sockfd, sendline, 16, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
+
+
+
+
+        printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x\n", frame_nbr, n_send, frame);
         if(pthread_kill(inpthread, 0)) break;
     }
 
@@ -198,51 +323,3 @@ int main(int argc, char* argv[])
 
 
 
-/* Sample UDP client */
-/*
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <stdio.h>
-
-int main(int argc, char**argv)
-{
-
-    FILE *kbfp;
-    char key;
-
-    kbfp = fopen("/dev/input/event2", "rb");
-
-    while(1){
-        key = fgetc(kbfp);
-        printf("%c\n", key);
-    }
-    fclose(kbfp);
-
-   int sockfd,n;
-   struct sockaddr_in servaddr,cliaddr;
-   char sendline[1000];
-   char recvline[1000];
-
-   if (argc != 2)
-   {
-      printf("usage:  udpcli <IP address>\n");
-      exit(1);
-   }
-
-   sockfd=socket(AF_INET,SOCK_DGRAM,0);
-
-   bzero(&servaddr,sizeof(servaddr));
-   servaddr.sin_family = AF_INET;
-   servaddr.sin_addr.s_addr=inet_addr(argv[1]);
-   servaddr.sin_port=htons(32000);
-
-   while (fgets(sendline, 10000,stdin) != NULL)
-   {
-      sendto(sockfd,sendline,strlen(sendline),0,
-             (struct sockaddr *)&servaddr,sizeof(servaddr));
-      n=recvfrom(sockfd,recvline,10000,0,NULL,NULL);
-      recvline[n]=0;
-      fputs(recvline,stdout);
-   }
-}
-*/
