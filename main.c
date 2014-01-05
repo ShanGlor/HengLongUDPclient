@@ -16,6 +16,11 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+#include "henglong.h"
 
 typedef struct input_thread_t
 {
@@ -26,14 +31,12 @@ typedef struct input_thread_t
 
 void *input_thread_fcn(void * arg)
 {
-    printf("pthread started\n");
+    printf("pthread input started\n");
 
     struct input_event ev[2];
-    int result = 0;
     int fevdev;
     int size = sizeof(struct input_event);
     int rd;
-    int value;
     input_thread_t* args;
 
     args = (input_thread_t*) arg;
@@ -49,152 +52,26 @@ void *input_thread_fcn(void * arg)
             break;
         }
 
-        value = ev[0].value;
 
         args->event = ev[1];
         // quit
         if(16==args->event.code && 1==args->event.value) break;
     }
 
-    printf("Exiting.\n");
-    result = ioctl(fevdev, EVIOCGRAB, 1);
+    printf("Exiting input thread.\n");
+    ioctl(fevdev, EVIOCGRAB, 1);
     close(fevdev);
 
     pthread_exit(0);
 }
 
-int CRC(int data)
-{
-  int c;
-  c = 0;
-  c ^= data & 0x03;
-  c ^= (data >> 2) & 0x0F;
-  c ^= (data >> 6) & 0x0F;
-  c ^= (data >> 10) & 0x0F;
-  c ^= (data >> 14) & 0x0F;
-  c ^= (data >> 18) & 0x0F;
-  return c;
-}
-
-int data2frame(int data)
-{
-  int frame;
-  frame = 0;
-  frame |= CRC(data) << 2;
-  frame |= data << 6;
-  frame |= 0xFE000000;
-  return frame;
-}
-
-
-int values2data(int velocity, int direction, int ignation, int mg, int fire, int turretelev, int turret_left, int turret_right, int recoil)
-{
-    int data = 0;
-    data = (mg & 1) | (ignation & 1) << 1 | (direction & 0b11111) << 2 | (fire & 1) << 7 | (turretelev & 1) << 8 | (turret_left & 1) << 9 | (turret_right & 1) << 10 | (recoil & 1) << 11 | (velocity & 0b11111) << 12;
-    return data;
-}
-
-typedef struct henglong_t
-{
-    int velocity, direction;
-    int ignation, mg, fire, turretelev, turret_left, turret_right, recoil;
-} henglong_t;
-
-void inithenglong(henglong_t* henglong)
-{
-    henglong->velocity     = 0b10000;
-    henglong->direction    = 0b01111;
-    henglong->ignation     =       0;
-    henglong->mg           =       0;
-    henglong->fire         =       0;
-    henglong->turretelev   =       0;
-    henglong->turret_left  =       0;
-    henglong->turret_right =       0;
-    henglong->recoil       =       0;
-}
-
-
-int event2data(henglong_t* henglong, struct input_event event)
-{
-        if(108==event.code){
-            if(event.value){
-                henglong->velocity = 0b11111;
-            }else{
-                henglong->velocity = 0b10000;
-            }
-        }
-        if(103==event.code){
-            if(event.value){
-                henglong->velocity = 0b00000;
-            }else{
-                henglong->velocity = 0b10000;
-            }
-        }
-        if(105==event.code){
-            if(event.value){
-                henglong->direction = 0b00000;
-            }else{
-                henglong->direction = 0b01111;
-            }
-        }
-        if(106==event.code){
-            if(event.value){
-                henglong->direction = 0b11111;
-            }else{
-                henglong->direction = 0b01111;
-            }
-        }
-        if(23==event.code){
-            if(event.value){
-                henglong->ignation = 1;
-            }else{
-                henglong->ignation = 0;
-            }
-        }
-        if(34==event.code){
-            if(event.value){
-                henglong->mg = 1;
-            }else{
-                henglong->mg = 0;
-            }
-        }
-        if(33==event.code){
-            if(event.value){
-                henglong->fire = 1;
-            }else{
-                henglong->fire = 0;
-            }
-        }
-        if(29==event.code){
-            if(event.value){
-                henglong->turret_left = 1;
-            }else{
-                henglong->turret_left = 0;
-            }
-        }
-        if(20==event.code){
-            if(event.value){
-                henglong->turretelev = 1;
-            }else{
-                henglong->turretelev = 0;
-            }
-        }
-        if(19==event.code){
-            if(event.value){
-                henglong->recoil = 1;
-            }else{
-                henglong->recoil = 0;
-            }
-        }
-
-    return values2data(henglong->velocity, henglong->direction, henglong->ignation, henglong->mg, henglong->fire, henglong->turretelev, henglong->turret_left, henglong->turret_right, henglong->recoil);
-}
 
 typedef struct refl_thread_args_t
 {
     int sockfd;
     uint64_t timestamps[256];
     uint16_t frame_nbr_send;
+    uint8_t timeout;
 } refl_thread_args_t;
 
 
@@ -231,10 +108,54 @@ void *refl_thread_fcn(void* arg)
         for(i=0;i<4;i++){
             frame_refl |= recvline[i+10] << i*8;
         }
-        printf("REFL FRAME -- FRM_NBR: %5d, RTT: %7llu, BYTES recv: %3d, REFL_FRM: %#x\n", frame_nbr_refl, get_us() - time_us_refl, n, frame_refl);
-        refl_thread_args_ptr->timestamps[frame_nbr_refl&0x0F] = 0;
+        printf("REFL FRAME -- FRM_NBR: %5d, RTT: %7" PRIu64 ", BYTES recv: %3d, REFL_FRM: %#x\n", frame_nbr_refl, get_us() - time_us_refl, n, frame_refl);
+        refl_thread_args_ptr->timestamps[frame_nbr_refl % refl_thread_args_ptr->timeout] = 0;
     }
     pthread_exit(0);
+}
+
+typedef struct henglongconf_t
+{
+    uint32_t frame_us;
+    char inpdevname[256];
+    in_addr_t ip; // v4 only
+    uint16_t port;
+    uint8_t timeout;
+} henglongconf_t;
+
+henglongconf_t getconfig(char* conffilename)
+{
+    FILE *configFile;
+    char line[256];
+    char parameter[16], value[256];
+    char ip[16];
+    henglongconf_t conf;
+    configFile = fopen(conffilename, "r");
+
+    // defaults
+    conf.timeout = 16;
+    conf.frame_us = 100000;
+    strcpy(conf.inpdevname, "/dev/input/event2");
+    conf.port = 32000;
+    conf.ip = inet_addr("127.0.0.1");
+
+    while(fgets(line, 256, configFile)){
+        sscanf(line, "%16s %256s", parameter, value);
+        if(0==strcmp(parameter,"INPUTDEV")){
+            sscanf(value, "%256s", conf.inpdevname);
+        }
+        if(0==strcmp(parameter,"FRAME_US")){
+            sscanf(value, "%" SCNu32 , &conf.frame_us);
+        }
+        if(0==strcmp(parameter,"SERVER")){
+            sscanf(value, "%16[^:]:%" SCNu16, ip, &conf.port);
+            conf.ip = inet_addr(ip);
+        }
+        if(0==strcmp(parameter,"TIMEOUT")){
+            sscanf(value, "%" SCNu8 , &conf.timeout);
+        }
+    }
+    return conf;
 }
 
 
@@ -244,29 +165,22 @@ int main(int argc, char* argv[])
     pthread_attr_t inp_thread_attr;
     input_thread_t input_thread_args;
     refl_thread_args_t refl_thread_args;
-    int inpdetachstate;
     int i=0;
     int frame;
     uint16_t frame_nbr;
-    uint16_t frame_nbr_refl;
-
-    int velocity = 0b10000, direction=0b01111;
-    int ignation = 0, mg = 0, fire = 0, turretelev = 0, turret_left = 0, turret_right = 0, recoil = 0;
-
-
-    int sockfd,n, n_send;
-    struct sockaddr_in servaddr,cliaddr;
+    int sockfd, n_send;
+    struct sockaddr_in servaddr;
     unsigned char sendline[64];
-    unsigned char recvline[64];
-    unsigned char tmpchr;
     henglong_t hl1;
-
-    uint64_t time_us, time_us_refl;
-    int frame_refl;
+    uint64_t time_us;
+    henglongconf_t conf;
 
     inithenglong(&hl1);
 
-    input_thread_args.filename = argv[1];
+
+    conf = getconfig(argv[1]);
+
+    input_thread_args.filename = conf.inpdevname;
 
 
     pthread_attr_init(&inp_thread_attr);
@@ -276,26 +190,26 @@ int main(int argc, char* argv[])
     sockfd = socket(AF_INET,SOCK_DGRAM,0);
 
     refl_thread_args.sockfd = sockfd;
+    refl_thread_args.timeout = conf.timeout;
 
     bzero(&servaddr,sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr=inet_addr(argv[2]);
-    servaddr.sin_port=htons(32000);
+    servaddr.sin_addr.s_addr=conf.ip;
+    servaddr.sin_port=htons(conf.port);
 
     if (pthread_create(&refl_thread, NULL, refl_thread_fcn, (void *) &refl_thread_args)) printf("failed to create thread %d\n", i);
 
-    memset(refl_thread_args.timestamps, 0, 256);
+    memset(refl_thread_args.timestamps, 0, 256*sizeof(uint64_t));
     frame_nbr = 0;
     while(1){
-        usleep(100000);
-        //printf("%d %d %d %d %d %d %d %d %d | %d %d %d %d\n", velocity, direction, ignation, mg, fire, turret_left, turret_right, turretelev, recoil, input_thread_args.event.code, input_thread_args.event.value, input_thread_args.event.type, input_thread_args.event.time);
+        usleep(conf.frame_us);
 
         frame = data2frame(event2data(&hl1, input_thread_args.event));
         time_us = get_us();
         frame_nbr++;
         refl_thread_args.frame_nbr_send = frame_nbr;
-        if(refl_thread_args.timestamps[frame_nbr & 0x0F]) printf("*** Frameloss detected! Lost frame from local time: %llu \n", refl_thread_args.timestamps[frame_nbr & 0x0F]);
-        refl_thread_args.timestamps[frame_nbr & 0x0F] = time_us;
+        if(refl_thread_args.timestamps[frame_nbr % conf.timeout]) printf("*** Frameloss detected! Lost frame from local time: %" PRIu64 "\n", refl_thread_args.timestamps[frame_nbr % conf.timeout]);
+        refl_thread_args.timestamps[frame_nbr % conf.timeout] = time_us;
 
         for(i=0;i<2;i++){
             sendline[i] = (frame_nbr >> i*8) & 0xFF;
@@ -307,12 +221,7 @@ int main(int argc, char* argv[])
             sendline[i+10] = (frame >> i*8) & 0xFF;
         }
 
-
         n_send = sendto(sockfd, sendline, 16, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
-
-
-
-
 
         printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x\n", frame_nbr, n_send, frame);
         if(pthread_kill(inpthread, 0)) break;
