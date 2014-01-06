@@ -170,7 +170,6 @@ henglongconf_t getconfig(char* conffilename)
 int main(int argc, char* argv[])
 {
     pthread_t inpthread, refl_thread;
-    pthread_attr_t inp_thread_attr;
     input_thread_t input_thread_args;
     refl_thread_args_t refl_thread_args;
     int i=0;
@@ -197,8 +196,7 @@ int main(int argc, char* argv[])
     input_thread_args.filename = conf.inpdevname;
 
 
-    pthread_attr_init(&inp_thread_attr);
-    if (pthread_create(&inpthread, &inp_thread_attr, input_thread_fcn , (void *) &input_thread_args)) printf("failed to create thread %d\n", i);
+    if (pthread_create(&inpthread, NULL, input_thread_fcn , (void *) &input_thread_args)) printf("failed to create thread\n");
 
 
     sockfd = socket(AF_INET,SOCK_DGRAM,0);
@@ -211,7 +209,7 @@ int main(int argc, char* argv[])
     servaddr.sin_addr.s_addr=conf.ip;
     servaddr.sin_port=htons(conf.port);
 
-    if (pthread_create(&refl_thread, NULL, refl_thread_fcn, (void *) &refl_thread_args)) printf("failed to create thread %d\n", i);
+    if (pthread_create(&refl_thread, NULL, refl_thread_fcn, (void *) &refl_thread_args)) printf("failed to create thread\n");
 
     memset(refl_thread_args.timestamps, 0, 256*sizeof(uint64_t));
     frame_nbr = 0;
