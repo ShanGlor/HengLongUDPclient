@@ -43,81 +43,96 @@ void inithenglong(henglong_t* henglong)
     henglong->turret_left  =       0;
     henglong->turret_right =       0;
     henglong->recoil       =       0;
+    henglong->clisel       =       0;
+    henglong->servoff      =       0;
 }
 
 
 int event2data(henglong_t* henglong, struct input_event event)
 {
-        if(108==event.code){
-            if(event.value){
-                henglong->velocity = 0b11111;
-            }else{
-                henglong->velocity = 0b10000;
-            }
+    //printf("%d\n", event.code);
+    if(107==event.code){
+        if(event.value){
+            henglong->servoff = 1;
+        }else{
+            henglong->servoff = 0;
         }
-        if(103==event.code){
-            if(event.value){
-                henglong->velocity = 0b00000;
-            }else{
-                henglong->velocity = 0b10000;
-            }
+    }
+    if(2<=event.code && 11>=event.code){
+        if(event.value){
+            henglong->clisel = (event.code - 1) % 10;
         }
-        if(105==event.code){
-            if(event.value){
-                henglong->direction = 0b00000;
-            }else{
-                henglong->direction = 0b01111;
-            }
+    }
+    if(108==event.code){
+        if(event.value){
+            henglong->velocity = 0b11111;
+        }else{
+            henglong->velocity = 0b10000;
         }
-        if(106==event.code){
-            if(event.value){
-                henglong->direction = 0b11111;
-            }else{
-                henglong->direction = 0b01111;
-            }
+    }
+    if(103==event.code){
+        if(event.value){
+            henglong->velocity = 0b00000;
+        }else{
+            henglong->velocity = 0b10000;
         }
-        if(23==event.code){
-            if(event.value){
-                henglong->ignation = 1;
-            }else{
-                henglong->ignation = 0;
-            }
+    }
+    if(105==event.code){
+        if(event.value){
+            henglong->direction = 0b00000;
+        }else{
+            henglong->direction = 0b01111;
         }
-        if(34==event.code){
-            if(event.value){
-                henglong->mg = 1;
-            }else{
-                henglong->mg = 0;
-            }
+    }
+    if(106==event.code){
+        if(event.value){
+            henglong->direction = 0b11111;
+        }else{
+            henglong->direction = 0b01111;
         }
-        if(33==event.code){
-            if(event.value){
-                henglong->fire = 1;
-            }else{
-                henglong->fire = 0;
-            }
+    }
+    if(23==event.code){
+        if(event.value){
+            henglong->ignation = 1;
+        }else{
+            henglong->ignation = 0;
         }
-        if(29==event.code){
-            if(event.value){
-                henglong->turret_left = 1;
-            }else{
-                henglong->turret_left = 0;
-            }
+    }
+    if(34==event.code){
+        if(event.value){
+            henglong->mg = 1;
+        }else{
+            henglong->mg = 0;
         }
-        if(20==event.code){
-            if(event.value){
-                henglong->turretelev = 1;
-            }else{
-                henglong->turretelev = 0;
-            }
+    }
+    if(33==event.code){
+        if(event.value){
+            henglong->fire = 1;
+        }else{
+            henglong->fire = 0;
         }
-        if(19==event.code){
-            if(event.value){
-                henglong->recoil = 1;
-            }else{
-                henglong->recoil = 0;
-            }
+    }
+    if(29==event.code){
+        if(event.value){
+            henglong->turret_left = 1;
+        }else{
+            henglong->turret_left = 0;
         }
+    }
+    if(20==event.code){
+        if(event.value){
+            henglong->turretelev = 1;
+        }else{
+            henglong->turretelev = 0;
+        }
+    }
+    if(19==event.code){
+        if(event.value){
+            henglong->recoil = 1;
+        }else{
+            henglong->recoil = 0;
+        }
+    }
 
     return values2data(henglong->velocity, henglong->direction, henglong->ignation, henglong->mg, henglong->fire, henglong->turretelev, henglong->turret_left, henglong->turret_right, henglong->recoil);
 }

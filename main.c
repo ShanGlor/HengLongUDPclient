@@ -16,7 +16,6 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <unistd.h>
 #include <arpa/inet.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -90,6 +89,8 @@ void *refl_thread_fcn(void* arg)
     unsigned char recvline[64];
     uint16_t frame_nbr_refl;
     refl_thread_args_t* refl_thread_args_ptr;
+    uint8_t clinbr, clisel;
+    unsigned char servoff;
     printf("pthread refl started\n");
 
     refl_thread_args_ptr = (refl_thread_args_t*) arg;
@@ -108,7 +109,10 @@ void *refl_thread_fcn(void* arg)
         for(i=0;i<4;i++){
             frame_refl |= recvline[i+10] << i*8;
         }
-        printf("REFL FRAME -- FRM_NBR: %5d, RTT: %7" PRIu64 ", BYTES recv: %3d, REFL_FRM: %#x\n", frame_nbr_refl, get_us() - time_us_refl, n, frame_refl);
+        clinbr = recvline[14];
+        clisel = recvline[15];
+        servoff = recvline[16];
+        printf("REFL FRAME -- FRM_NBR: %5d, RTT: %7" PRIu64 ", BYTES recv: %3d, REFL_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr_refl, get_us() - time_us_refl, n, frame_refl, clinbr, clisel, servoff);
         refl_thread_args_ptr->timestamps[frame_nbr_refl % refl_thread_args_ptr->timeout] = 0;
     }
     pthread_exit(0);
@@ -121,6 +125,7 @@ typedef struct henglongconf_t
     in_addr_t ip; // v4 only
     uint16_t port;
     uint8_t timeout;
+    uint8_t clinbr;
 } henglongconf_t;
 
 henglongconf_t getconfig(char* conffilename)
@@ -154,6 +159,9 @@ henglongconf_t getconfig(char* conffilename)
         if(0==strcmp(parameter,"TIMEOUT")){
             sscanf(value, "%" SCNu8 , &conf.timeout);
         }
+        if(0==strcmp(parameter,"CLINBR")){
+            sscanf(value, "%" SCNu8 , &conf.clinbr);
+        }
     }
     return conf;
 }
@@ -174,6 +182,12 @@ int main(int argc, char* argv[])
     henglong_t hl1;
     uint64_t time_us;
     henglongconf_t conf;
+
+
+    if(2!=argc){
+        printf("\nThis program is intented to be run on the PC as client to control the server on the heng long tank. \n\n USAGE: UDPclient client.config\n\n Copyright (C) 2014 Stefan Helmert <stefan.helmert@gmx.net>\n\n");
+        return 0;
+    }
 
     inithenglong(&hl1);
 
@@ -220,10 +234,13 @@ int main(int argc, char* argv[])
         for(i=0;i<4;i++){
             sendline[i+10] = (frame >> i*8) & 0xFF;
         }
+        sendline[14] = conf.clinbr;
+        sendline[15] = hl1.clisel;
+        sendline[16] = hl1.servoff;
 
-        n_send = sendto(sockfd, sendline, 16, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+        n_send = sendto(sockfd, sendline, 32, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-        printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x\n", frame_nbr, n_send, frame);
+        printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr, n_send, frame, conf.clinbr, hl1.clisel, hl1.servoff);
         if(pthread_kill(inpthread, 0)) break;
     }
 

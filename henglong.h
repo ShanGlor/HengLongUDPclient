@@ -2,12 +2,16 @@
 #define HENGLONG_H_INCLUDED
 
 #include <linux/input.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 
 typedef struct henglong_t
 {
     int velocity, direction;
     int ignation, mg, fire, turretelev, turret_left, turret_right, recoil;
+    uint8_t clisel;
+    unsigned char servoff;
 } henglong_t;
 
 int CRC(int data);
