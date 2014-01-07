@@ -91,6 +91,8 @@ void *refl_thread_fcn(void* arg)
     refl_thread_args_t* refl_thread_args_ptr;
     uint8_t clinbr, clisel;
     unsigned char servoff;
+
+
     printf("pthread refl started\n");
 
     refl_thread_args_ptr = (refl_thread_args_t*) arg;
