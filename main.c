@@ -32,7 +32,7 @@ void *input_thread_fcn(void * arg)
 {
     printf("pthread input started\n");
 
-    struct input_event ev[2];
+    struct input_event ev;
     int fevdev;
     int size = sizeof(struct input_event);
     int rd;
@@ -47,12 +47,15 @@ void *input_thread_fcn(void * arg)
 
     while (1)
     {
-        if ((rd = read(fevdev, ev, size * 2)) < size) {
+        if ((rd = read(fevdev, &ev, size)) < size) {
             break;
         }
 
+        if(EV_KEY == ev.type) {
+            args->event = ev;
+            printf("%d %d\n", ev.code, ev.value);
 
-        args->event = ev[1];
+        }
         // quit
         if(16==args->event.code && 1==args->event.value) break;
     }
