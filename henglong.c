@@ -28,13 +28,13 @@ int data2frame(int data)
 int values2data(int velocity, int direction, int ignation, int mg, int fire, int turretelev, int turret_left, int turret_right, int recoil)
 {
     int data = 0;
-    data = (mg & 1) | (ignation & 1) << 1 | (direction & 0b11110) << 2 | (fire & 1) << 7 | (turretelev & 1) << 8 | (turret_left & 1) << 9 | (turret_right & 1) << 10 | (recoil & 1) << 11 | (velocity & 0b11110) << 12;
+    data = (mg & 1) | (ignation & 1) << 1 | (direction & 0b11111) << 2 | (fire & 1) << 7 | (turretelev & 1) << 8 | (turret_left & 1) << 9 | (turret_right & 1) << 10 | (recoil & 1) << 11 | (velocity & 0b11111) << 12;
     return data;
 }
 
 void inithenglong(henglong_t* henglong)
 {
-    henglong->velocity     = 0b10000;
+    henglong->velocity     = 0b01111;
     henglong->direction    = 0b01111;
     henglong->ignation     =       0;
     henglong->mg           =       0;
@@ -65,28 +65,28 @@ int event2data(henglong_t* henglong, struct input_event event)
     }
     if(108==event.code){
         if(event.value){
-            henglong->velocity = 0b11111;
+            henglong->velocity = 0b11000;
         }else{
-            henglong->velocity = 0b10000;
+            henglong->velocity = 0b01111;
         }
     }
     if(103==event.code){
         if(event.value){
-            henglong->velocity = 0b00000;
+            henglong->velocity = 0b00011;
         }else{
-            henglong->velocity = 0b10000;
+            henglong->velocity = 0b01111;
         }
     }
     if(105==event.code){
         if(event.value){
-            henglong->direction = 0b00000;
+            henglong->direction = 0b00011;
         }else{
             henglong->direction = 0b01111;
         }
     }
     if(106==event.code){
         if(event.value){
-            henglong->direction = 0b11111;
+            henglong->direction = 0b11100;
         }else{
             henglong->direction = 0b01111;
         }
