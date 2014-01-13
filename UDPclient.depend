@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1389064539 source:/home/stefan/Proj/UDPclient/main.c
+1389621137 source:/home/stefan/Proj/UDPclient/main.c
 	<pthread.h>
 	<stdio.h>
 	<stdlib.h>

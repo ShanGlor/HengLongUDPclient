@@ -119,6 +119,13 @@ int event2data(henglong_t* henglong, struct input_event event)
             henglong->turret_left = 0;
         }
     }
+    if(56==event.code){
+        if(event.value){
+            henglong->turret_right = 1;
+        }else{
+            henglong->turret_right = 0;
+        }
+    }
     if(20==event.code){
         if(event.value){
             henglong->turretelev = 1;
