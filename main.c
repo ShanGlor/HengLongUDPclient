@@ -24,7 +24,8 @@
 typedef struct input_thread_t
 {
     char* filename;
-    struct input_event event;
+    int frame;
+    henglong_t hl;
 } input_thread_t;
 
 
@@ -52,12 +53,12 @@ void *input_thread_fcn(void * arg)
         }
 
         if(EV_KEY == ev.type) {
-            args->event = ev;
             printf("%d %d\n", ev.code, ev.value);
+            args->frame = data2frame(event2data(&args->hl, ev));
 
         }
         // quit
-        if(16==args->event.code && 1==args->event.value) break;
+        if(16==ev.code && 1==ev.value) break;
     }
 
     printf("Exiting input thread.\n");
@@ -178,12 +179,11 @@ int main(int argc, char* argv[])
     input_thread_t input_thread_args;
     refl_thread_args_t refl_thread_args;
     int i=0;
-    int frame;
+    int frame = 0;
     uint16_t frame_nbr;
     int sockfd, n_send;
     struct sockaddr_in servaddr;
     unsigned char sendline[64];
-    henglong_t hl1;
     uint64_t time_us;
     henglongconf_t conf;
 
@@ -193,8 +193,7 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    inithenglong(&hl1);
-
+    inithenglong(&input_thread_args.hl);
 
     conf = getconfig(argv[1]);
 
@@ -221,7 +220,8 @@ int main(int argc, char* argv[])
     while(1){
         usleep(conf.frame_us);
 
-        frame = data2frame(event2data(&hl1, input_thread_args.event));
+        frame = input_thread_args.frame;
+
         time_us = get_us();
         frame_nbr++;
         refl_thread_args.frame_nbr_send = frame_nbr;
@@ -238,12 +238,12 @@ int main(int argc, char* argv[])
             sendline[i+10] = (frame >> i*8) & 0xFF;
         }
         sendline[14] = conf.clinbr;
-        sendline[15] = hl1.clisel;
-        sendline[16] = hl1.servoff;
+        sendline[15] = input_thread_args.hl.clisel;
+        sendline[16] = input_thread_args.hl.servoff;
 
         n_send = sendto(sockfd, sendline, 32, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-        printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr, n_send, frame, conf.clinbr, hl1.clisel, hl1.servoff);
+        printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr, n_send, frame, conf.clinbr, input_thread_args.hl.clisel, input_thread_args.hl.servoff);
         if(pthread_kill(inpthread, 0)) break;
     }
 
