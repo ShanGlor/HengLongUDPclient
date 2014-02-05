@@ -21,13 +21,33 @@
 #include <inttypes.h>
 #include "henglong.h"
 
+typedef struct outtty_t
+{
+    int16_t motor_r;
+    int16_t motor_l;
+    int16_t servo_tilt;
+    int16_t servo_pan;
+} outtty_t;
+
 typedef struct input_thread_t
 {
     char* filename;
     int frame;
     henglong_t hl;
+    outtty_t outtty;
 } input_thread_t;
 
+typedef struct RCdatagram_t
+{
+    uint16_t frame_nbr;
+    uint64_t time_us;
+    int frame_recv;
+    uint8_t clisel;
+    uint8_t clinbr;
+    uint8_t client_selected;
+    unsigned char servoff;
+    outtty_t outtty;
+} RCdatagram_t;
 
 void *input_thread_fcn(void * arg)
 {
@@ -55,7 +75,18 @@ void *input_thread_fcn(void * arg)
         if(EV_KEY == ev.type) {
             printf("%d %d\n", ev.code, ev.value);
             args->frame = data2frame(event2data(&args->hl, ev));
-
+            args->outtty.motor_r = (2*0b01111 - args->hl.velocity - args->hl.direction)*40;
+            args->outtty.motor_l = (- args->hl.velocity + args->hl.direction)*40;
+            args->outtty.servo_pan += args->hl.pan_left - args->hl.pan_right;
+            if(args->outtty.servo_pan>50) args->outtty.servo_pan = 50;
+            if(args->outtty.servo_pan<-50) args->outtty.servo_pan = -50;
+            if(args->outtty.servo_tilt>50) args->outtty.servo_tilt = 50;
+            if(args->outtty.servo_tilt<-50) args->outtty.servo_tilt = -50;
+            args->outtty.servo_tilt += args->hl.tilt_up - args->hl.tilt_down;
+            if(args->hl.ignation) {
+                args->outtty.servo_pan = 0;
+                args->outtty.servo_tilt= 0;
+            }
         }
         // quit
         if(16==ev.code && 1==ev.value) break;
@@ -87,14 +118,14 @@ uint64_t get_us(void)
 
 void *refl_thread_fcn(void* arg)
 {
-    int n, i = 0;
+    int n;
     int frame_refl;
     uint64_t time_us_refl;
-    unsigned char recvline[64];
     uint16_t frame_nbr_refl;
     refl_thread_args_t* refl_thread_args_ptr;
     uint8_t clinbr, clisel;
     unsigned char servoff;
+    RCdatagram_t refldata;
 
 
     printf("pthread refl started\n");
@@ -102,22 +133,19 @@ void *refl_thread_fcn(void* arg)
     refl_thread_args_ptr = (refl_thread_args_t*) arg;
 
     while(1){
-        n=recvfrom(refl_thread_args_ptr->sockfd,recvline,64,0,NULL,NULL);
-        frame_nbr_refl = 0;
-        for(i=0;i<2;i++){
-            frame_nbr_refl |= recvline[i] << i*8;
-        }
-        time_us_refl = 0ULL;
-        for(i=0;i<8;i++){
-            time_us_refl |= ((uint64_t)recvline[i+2]) << i*8;
-        }
-        frame_refl = 0;
-        for(i=0;i<4;i++){
-            frame_refl |= recvline[i+10] << i*8;
-        }
-        clinbr = recvline[14];
-        clisel = recvline[15];
-        servoff = recvline[16];
+        n=recvfrom(refl_thread_args_ptr->sockfd,&refldata,64,0,NULL,NULL);
+
+
+        frame_nbr_refl = refldata.frame_nbr;
+
+        time_us_refl = refldata.time_us;
+
+
+        frame_refl = refldata.frame_recv;
+
+        clinbr = refldata.clinbr;
+        clisel = refldata.clisel;
+        servoff = refldata.servoff;
         printf("REFL FRAME -- FRM_NBR: %5d, RTT: %7" PRIu64 ", BYTES recv: %3d, REFL_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr_refl, get_us() - time_us_refl, n, frame_refl, clinbr, clisel, servoff);
         refl_thread_args_ptr->timestamps[frame_nbr_refl % refl_thread_args_ptr->timeout] = 0;
     }
@@ -178,14 +206,13 @@ int main(int argc, char* argv[])
     pthread_t inpthread, refl_thread;
     input_thread_t input_thread_args;
     refl_thread_args_t refl_thread_args;
-    int i=0;
     int frame = 0;
     uint16_t frame_nbr;
     int sockfd, n_send;
     struct sockaddr_in servaddr;
-    unsigned char sendline[64];
     uint64_t time_us;
     henglongconf_t conf;
+    RCdatagram_t senddata;
 
 
     if(2!=argc){
@@ -228,20 +255,15 @@ int main(int argc, char* argv[])
         if(refl_thread_args.timestamps[frame_nbr % conf.timeout]) printf("*** Frameloss detected! Lost frame from local time: %" PRIu64 "\n", refl_thread_args.timestamps[frame_nbr % conf.timeout]);
         refl_thread_args.timestamps[frame_nbr % conf.timeout] = time_us;
 
-        for(i=0;i<2;i++){
-            sendline[i] = (frame_nbr >> i*8) & 0xFF;
-        }
-        for(i=0;i<8;i++){
-            sendline[i+2] = (time_us >> i*8) & 0xFF;
-        }
-        for(i=0;i<4;i++){
-            sendline[i+10] = (frame >> i*8) & 0xFF;
-        }
-        sendline[14] = conf.clinbr;
-        sendline[15] = input_thread_args.hl.clisel;
-        sendline[16] = input_thread_args.hl.servoff;
+        senddata.frame_nbr = frame_nbr;
+        senddata.time_us = time_us;
+        senddata.frame_recv = frame;
+        senddata.clinbr = conf.clinbr;
+        senddata.clisel = input_thread_args.hl.clisel;
+        senddata.servoff = input_thread_args.hl.servoff;
+        senddata.outtty = input_thread_args.outtty;
 
-        n_send = sendto(sockfd, sendline, 32, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+        n_send = sendto(sockfd, &senddata, sizeof(senddata), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
         printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr, n_send, frame, conf.clinbr, input_thread_args.hl.clisel, input_thread_args.hl.servoff);
         if(pthread_kill(inpthread, 0)) break;

@@ -45,6 +45,11 @@ void inithenglong(henglong_t* henglong)
     henglong->recoil       =       0;
     henglong->clisel       =       0;
     henglong->servoff      =       0;
+    henglong->tilt_up      =       0;
+    henglong->tilt_down    =       0;
+    henglong->pan_left     =       0;
+    henglong->pan_right    =       0;
+
 }
 
 
@@ -56,6 +61,34 @@ int event2data(henglong_t* henglong, struct input_event event)
             henglong->servoff = 1;
         }else{
             henglong->servoff = 0;
+        }
+    }
+    if(17==event.code){
+        if(event.value){
+            henglong->tilt_up = 1;
+        }else{
+            henglong->tilt_up = 0;
+        }
+    }
+    if(31==event.code){
+        if(event.value){
+            henglong->tilt_down = 1;
+        }else{
+            henglong->tilt_down = 0;
+        }
+    }
+    if(30==event.code){
+        if(event.value){
+            henglong->pan_left = 1;
+        }else{
+            henglong->pan_left = 0;
+        }
+    }
+    if(32==event.code){
+        if(event.value){
+            henglong->pan_right = 1;
+        }else{
+            henglong->pan_right = 0;
         }
     }
     if(2<=event.code && 11>=event.code){

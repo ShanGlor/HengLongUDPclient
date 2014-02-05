@@ -9,7 +9,7 @@
 typedef struct henglong_t
 {
     int velocity, direction;
-    int ignation, mg, fire, turretelev, turret_left, turret_right, recoil;
+    int ignation, mg, fire, turretelev, turret_left, turret_right, recoil, tilt_up, tilt_down, pan_left, pan_right;
     uint8_t clisel;
     unsigned char servoff;
 } henglong_t;

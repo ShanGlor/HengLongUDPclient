@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1389621137 source:/home/stefan/Proj/UDPclient/main.c
+1391553490 source:/home/stefan/Proj/UDPclient/main.c
 	<pthread.h>
 	<stdio.h>
 	<stdlib.h>
@@ -21,10 +21,10 @@
 	<inttypes.h>
 	"henglong.h"
 
-1389212471 source:/home/stefan/Proj/UDPclient/henglong.c
+1391557977 source:/home/stefan/Proj/UDPclient/henglong.c
 	"henglong.h"
 
-1389038543 /home/stefan/Proj/UDPclient/henglong.h
+1391558168 /home/stefan/Proj/UDPclient/henglong.h
 	<linux/input.h>
 	<stdio.h>
 	<inttypes.h>

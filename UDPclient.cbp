@@ -31,6 +31,14 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Linker>
+			<Add option="-pthread" />
+		</Linker>
+		<Unit filename="client.config" />
+		<Unit filename="henglong.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="henglong.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
