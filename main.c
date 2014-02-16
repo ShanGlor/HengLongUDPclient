@@ -86,6 +86,8 @@ void *keyboard_thread_fcn(void * arg)
             args->frame = data2frame(event2data(&args->hl, ev));
             args->outtty.motor_r = (2*0b01111 - args->hl.velocity - args->hl.direction)*40;
             args->outtty.motor_l = (- args->hl.velocity + args->hl.direction)*40;
+
+            /*
             args->outtty.servo_pan += args->hl.pan_left - args->hl.pan_right;
             if(args->outtty.servo_pan>50) args->outtty.servo_pan = 50;
             if(args->outtty.servo_pan<-50) args->outtty.servo_pan = -50;
@@ -96,6 +98,9 @@ void *keyboard_thread_fcn(void * arg)
                 args->outtty.servo_pan = 0;
                 args->outtty.servo_tilt= 0;
             }
+            */
+
+
         }
         // quit
         if(16==ev.code && 1==ev.value) break;
@@ -148,7 +153,7 @@ void *joystick_thread_fcn(void * arg)
             }
         }
         if(JS_EVENT_AXIS == ev.type){
-            //printf("%d %d %d\n", ev.type, ev.value, ev.number);
+            printf("%d %d %d\n", ev.type, ev.value, ev.number);
             if(0==ev.number){
                 jsdata.x = ev.value;
             }
@@ -156,6 +161,38 @@ void *joystick_thread_fcn(void * arg)
                 jsdata.y = -ev.value;
                 if(-32768==ev.value){
                     jsdata.y = +32767;
+                }
+            }
+            if(2==ev.number){
+                outttyloc.servo_tilt = 0;
+                if(-30000 > ev.value){
+                    outttyloc.servo_tilt = -1;
+                    args->hl.tilt_down = 1;
+                    args->hl.tilt_up = 0;
+                }else{
+                    args->hl.tilt_down = 0;
+                    if(+5000>ev.value){
+                        args->hl.tilt_up = 1;
+                        outttyloc.servo_tilt = +1;
+                    }else{
+                        args->hl.tilt_up = 0;
+                    }
+                }
+            }
+            if(3==ev.number){
+                outttyloc.servo_pan = 0;
+                if(-30000 > ev.value){
+                    args->hl.pan_left = 1;
+                    args->hl.pan_right = 0;
+                    outttyloc.servo_pan = -1;
+                }else{
+                    args->hl.pan_left = 0;
+                    if(+5000>ev.value){
+                        args->hl.pan_right = 1;
+                        outttyloc.servo_pan = +1;
+                    }else{
+                        args->hl.pan_right = 0;
+                    }
                 }
             }
         }
@@ -167,6 +204,7 @@ void *joystick_thread_fcn(void * arg)
         if(-1022>outttyloc.motor_l) outttyloc.motor_l = -1023;
 
         args->outtty = outttyloc;
+        args->hl.ignation = (1 & (jsdata.buttons >> 2));
 
         printf("%6d %6d %4x\n", jsdata.x, jsdata.y, jsdata.buttons);
     }
@@ -338,6 +376,8 @@ int main(int argc, char* argv[])
 
     memset(refl_thread_args.timestamps, 0, 256*sizeof(uint64_t));
     frame_nbr = 0;
+    senddata.outtty.servo_pan = 0;
+    senddata.outtty.servo_tilt = 0;
     while(1){
         usleep(conf.frame_us);
 
@@ -358,13 +398,24 @@ int main(int argc, char* argv[])
 
         senddata.outtty.motor_l = keyboard_thread_args.outtty.motor_l + joystick_thread_args.outtty.motor_l;
         senddata.outtty.motor_r = keyboard_thread_args.outtty.motor_r + joystick_thread_args.outtty.motor_r;
-        senddata.outtty.servo_pan = keyboard_thread_args.outtty.servo_pan + joystick_thread_args.outtty.servo_pan;
-        senddata.outtty.servo_tilt = keyboard_thread_args.outtty.servo_tilt + joystick_thread_args.outtty.servo_tilt;
+        senddata.outtty.servo_pan += keyboard_thread_args.hl.pan_right - keyboard_thread_args.hl.pan_left + joystick_thread_args.hl.pan_right - joystick_thread_args.hl.pan_left;
+        senddata.outtty.servo_tilt += keyboard_thread_args.hl.tilt_up - keyboard_thread_args.hl.tilt_down + joystick_thread_args.hl.tilt_up - joystick_thread_args.hl.tilt_down;
+
+        if(keyboard_thread_args.hl.ignation | joystick_thread_args.hl.ignation){
+            senddata.outtty.servo_pan = 0;
+            senddata.outtty.servo_tilt = 0;
+        }
 
         if(1022<senddata.outtty.motor_l) senddata.outtty.motor_l = 1023;
         if(-1022>senddata.outtty.motor_l) senddata.outtty.motor_l = -1023;
         if(1022<senddata.outtty.motor_r) senddata.outtty.motor_r = 1023;
         if(-1022>senddata.outtty.motor_r) senddata.outtty.motor_r = -1023;
+
+        if(senddata.outtty.servo_pan>50) senddata.outtty.servo_pan = 50;
+        if(senddata.outtty.servo_pan<-50) senddata.outtty.servo_pan = -50;
+        if(senddata.outtty.servo_tilt>50) senddata.outtty.servo_tilt = 50;
+        if(senddata.outtty.servo_tilt<-50) senddata.outtty.servo_tilt = -50;
+
 
         n_send = sendto(sockfd, &senddata, sizeof(senddata), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
