@@ -20,6 +20,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include "henglong.h"
+#include <linux/joystick.h>
 
 typedef struct outtty_t
 {
@@ -37,33 +38,41 @@ typedef struct input_thread_t
     outtty_t outtty;
 } input_thread_t;
 
+void initouttty(outtty_t* tty)
+{
+    tty->motor_l = 0;
+    tty->motor_r = 0;
+    tty->servo_pan = 0;
+    tty->servo_tilt = 0;
+}
+
 typedef struct RCdatagram_t
 {
     uint16_t frame_nbr;
     uint64_t time_us;
-    int frame_recv;
+    int32_t frame_recv;
     uint8_t clisel;
     uint8_t clinbr;
     uint8_t client_selected;
-    unsigned char servoff;
+    uint8_t servoff;
     outtty_t outtty;
-} RCdatagram_t;
+} __attribute__ ((packed)) RCdatagram_t;
 
-void *input_thread_fcn(void * arg)
+void *keyboard_thread_fcn(void * arg)
 {
     printf("pthread input started\n");
 
     struct input_event ev;
     int fevdev;
-    int size = sizeof(struct input_event);
+    int size = sizeof(ev);
     int rd;
     input_thread_t* args;
 
     args = (input_thread_t*) arg;
     fevdev = open(args->filename, O_RDONLY);
     if (fevdev == -1) {
-        printf("Failed to open event device.\n");
-        exit(1);
+        printf("Failed to open keyboard device.\n");
+        pthread_exit(0);
     }
 
     while (1)
@@ -92,8 +101,77 @@ void *input_thread_fcn(void * arg)
         if(16==ev.code && 1==ev.value) break;
     }
 
-    printf("Exiting input thread.\n");
+    printf("Exiting keyboard thread.\n");
     ioctl(fevdev, EVIOCGRAB, 1);
+    close(fevdev);
+
+    pthread_exit(0);
+}
+
+
+void *joystick_thread_fcn(void * arg)
+{
+    printf("pthread input started\n");
+
+    struct js_event ev;
+    struct JS_DATA_TYPE jsdata;
+    int fevdev;
+    int size = sizeof(ev);
+    int rd;
+    outtty_t outttyloc;
+    input_thread_t* args;
+
+    args = (input_thread_t*) arg;
+    fevdev = open(args->filename, O_RDONLY);
+    if (fevdev == -1) {
+        printf("Failed to open joystick device.\n");
+        pthread_exit(0);
+    }
+
+    jsdata.x = 0;
+    jsdata.y = 0;
+    jsdata.buttons = 0;
+
+    while (1)
+    {
+        if ((rd = read(fevdev, &ev, size)) < size) {
+            break;
+        }
+
+        if(JS_EVENT_BUTTON == ev.type) {
+            //printf("%d %d %d\n", ev.type, ev.value, ev.number);
+            if(1==ev.value){
+                jsdata.buttons |= 1<<ev.number;
+            }
+            if(0==ev.value){
+                jsdata.buttons &= ~(1<<ev.number);
+            }
+        }
+        if(JS_EVENT_AXIS == ev.type){
+            //printf("%d %d %d\n", ev.type, ev.value, ev.number);
+            if(0==ev.number){
+                jsdata.x = ev.value;
+            }
+            if(1==ev.number){
+                jsdata.y = -ev.value;
+                if(-32768==ev.value){
+                    jsdata.y = +32767;
+                }
+            }
+        }
+        outttyloc.motor_r = jsdata.y/30 - jsdata.x/30;
+        outttyloc.motor_l = jsdata.y/30 + jsdata.x/30 ;
+        if(1022<outttyloc.motor_r) outttyloc.motor_r = 1023;
+        if(-1022>outttyloc.motor_r) outttyloc.motor_r = -1023;
+        if(1022<outttyloc.motor_l) outttyloc.motor_l = 1023;
+        if(-1022>outttyloc.motor_l) outttyloc.motor_l = -1023;
+
+        args->outtty = outttyloc;
+
+        printf("%6d %6d %4x\n", jsdata.x, jsdata.y, jsdata.buttons);
+    }
+
+    printf("Exiting joystick thread.\n");
     close(fevdev);
 
     pthread_exit(0);
@@ -133,7 +211,7 @@ void *refl_thread_fcn(void* arg)
     refl_thread_args_ptr = (refl_thread_args_t*) arg;
 
     while(1){
-        n=recvfrom(refl_thread_args_ptr->sockfd,&refldata,64,0,NULL,NULL);
+        n=recvfrom(refl_thread_args_ptr->sockfd,&refldata,sizeof(refldata),0,NULL,NULL);
 
 
         frame_nbr_refl = refldata.frame_nbr;
@@ -155,7 +233,8 @@ void *refl_thread_fcn(void* arg)
 typedef struct henglongconf_t
 {
     uint32_t frame_us;
-    char inpdevname[256];
+    char keyboarddevname[256];
+    char joystickdevname[256];
     in_addr_t ip; // v4 only
     uint16_t port;
     uint8_t timeout;
@@ -174,14 +253,18 @@ henglongconf_t getconfig(char* conffilename)
     // defaults
     conf.timeout = 16;
     conf.frame_us = 100000;
-    strcpy(conf.inpdevname, "/dev/input/event2");
     conf.port = 32000;
     conf.ip = inet_addr("127.0.0.1");
+    conf.keyboarddevname[0] = 0;
+    conf.joystickdevname[0] = 0;
 
     while(fgets(line, 256, configFile)){
         sscanf(line, "%16s %256s", parameter, value);
-        if(0==strcmp(parameter,"INPUTDEV")){
-            sscanf(value, "%256s", conf.inpdevname);
+        if(0==strcmp(parameter,"KEYBOARD")){
+            sscanf(value, "%256s", conf.keyboarddevname);
+        }
+        if(0==strcmp(parameter,"JOYSTICK")){
+            sscanf(value, "%256s", conf.joystickdevname);
         }
         if(0==strcmp(parameter,"FRAME_US")){
             sscanf(value, "%" SCNu32 , &conf.frame_us);
@@ -203,8 +286,9 @@ henglongconf_t getconfig(char* conffilename)
 
 int main(int argc, char* argv[])
 {
-    pthread_t inpthread, refl_thread;
-    input_thread_t input_thread_args;
+    pthread_t keybthread, joythread, refl_thread;
+    input_thread_t keyboard_thread_args;
+    input_thread_t joystick_thread_args;
     refl_thread_args_t refl_thread_args;
     int frame = 0;
     uint16_t frame_nbr;
@@ -214,21 +298,31 @@ int main(int argc, char* argv[])
     henglongconf_t conf;
     RCdatagram_t senddata;
 
-
     if(2!=argc){
         printf("\nThis program is intented to be run on the PC as client to control the server on the heng long tank. \n\n USAGE: UDPclient client.config\n\n Copyright (C) 2014 Stefan Helmert <stefan.helmert@gmx.net>\n\n");
         return 0;
     }
 
-    inithenglong(&input_thread_args.hl);
+    inithenglong(&keyboard_thread_args.hl);
+    initouttty(&keyboard_thread_args.outtty);
+    inithenglong(&joystick_thread_args.hl);
+    initouttty(&joystick_thread_args.outtty);
 
     conf = getconfig(argv[1]);
 
-    input_thread_args.filename = conf.inpdevname;
+    joystick_thread_args.filename = conf.joystickdevname;
+    keyboard_thread_args.filename = conf.keyboarddevname;
 
-
-    if (pthread_create(&inpthread, NULL, input_thread_fcn , (void *) &input_thread_args)) printf("failed to create thread\n");
-
+    if(keyboard_thread_args.filename[0]){
+        if (pthread_create(&keybthread, NULL, keyboard_thread_fcn , (void *) &keyboard_thread_args)) printf("failed to create keyboard thread\n");
+    }else{
+        printf("no keyboard!\n");
+    }
+    if(joystick_thread_args.filename[0]){
+        if (pthread_create(&joythread, NULL, joystick_thread_fcn , (void *) &joystick_thread_args)) printf("failed to create joystick thread\n");
+    }else{
+        printf("no joystick!\n");
+    }
 
     sockfd = socket(AF_INET,SOCK_DGRAM,0);
 
@@ -247,7 +341,7 @@ int main(int argc, char* argv[])
     while(1){
         usleep(conf.frame_us);
 
-        frame = input_thread_args.frame;
+        frame = 0xc0ffee;
 
         time_us = get_us();
         frame_nbr++;
@@ -259,14 +353,23 @@ int main(int argc, char* argv[])
         senddata.time_us = time_us;
         senddata.frame_recv = frame;
         senddata.clinbr = conf.clinbr;
-        senddata.clisel = input_thread_args.hl.clisel;
-        senddata.servoff = input_thread_args.hl.servoff;
-        senddata.outtty = input_thread_args.outtty;
+        senddata.clisel = keyboard_thread_args.hl.clisel;
+        senddata.servoff = keyboard_thread_args.hl.servoff;
+
+        senddata.outtty.motor_l = keyboard_thread_args.outtty.motor_l + joystick_thread_args.outtty.motor_l;
+        senddata.outtty.motor_r = keyboard_thread_args.outtty.motor_r + joystick_thread_args.outtty.motor_r;
+        senddata.outtty.servo_pan = keyboard_thread_args.outtty.servo_pan + joystick_thread_args.outtty.servo_pan;
+        senddata.outtty.servo_tilt = keyboard_thread_args.outtty.servo_tilt + joystick_thread_args.outtty.servo_tilt;
+
+        if(1022<senddata.outtty.motor_l) senddata.outtty.motor_l = 1023;
+        if(-1022>senddata.outtty.motor_l) senddata.outtty.motor_l = -1023;
+        if(1022<senddata.outtty.motor_r) senddata.outtty.motor_r = 1023;
+        if(-1022>senddata.outtty.motor_r) senddata.outtty.motor_r = -1023;
 
         n_send = sendto(sockfd, &senddata, sizeof(senddata), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-        printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr, n_send, frame, conf.clinbr, input_thread_args.hl.clisel, input_thread_args.hl.servoff);
-        if(pthread_kill(inpthread, 0)) break;
+        printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr, n_send, frame, senddata.clinbr, senddata.clisel, senddata.servoff);
+        if(pthread_kill(keybthread, 0)) break;
     }
 
     return 0;

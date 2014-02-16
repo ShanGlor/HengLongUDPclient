@@ -29,6 +29,7 @@
 			</Target>
 		</Build>
 		<Compiler>
+			<Add option="-O1" />
 			<Add option="-Wall" />
 		</Compiler>
 		<Linker>
