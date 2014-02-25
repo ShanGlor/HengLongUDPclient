@@ -21,6 +21,8 @@
 #include <inttypes.h>
 #include "henglong.h"
 #include <linux/joystick.h>
+#include "wansview.h"
+
 
 typedef struct outtty_t
 {
@@ -112,7 +114,6 @@ void *keyboard_thread_fcn(void * arg)
 
     pthread_exit(0);
 }
-
 
 void *joystick_thread_fcn(void * arg)
 {
@@ -274,6 +275,8 @@ typedef struct henglongconf_t
     char keyboarddevname[256];
     char joystickdevname[256];
     in_addr_t ip; // v4 only
+    char cam[64];
+    uint32_t caminterval;
     uint16_t port;
     uint8_t timeout;
     uint8_t clinbr;
@@ -295,7 +298,8 @@ henglongconf_t getconfig(char* conffilename)
     conf.ip = inet_addr("127.0.0.1");
     conf.keyboarddevname[0] = 0;
     conf.joystickdevname[0] = 0;
-
+    conf.cam[0] = 0;
+    conf.caminterval = 100000;
     while(fgets(line, 256, configFile)){
         sscanf(line, "%16s %256s", parameter, value);
         if(0==strcmp(parameter,"KEYBOARD")){
@@ -303,6 +307,12 @@ henglongconf_t getconfig(char* conffilename)
         }
         if(0==strcmp(parameter,"JOYSTICK")){
             sscanf(value, "%256s", conf.joystickdevname);
+        }
+        if(0==strcmp(parameter,"CAM")){
+            sscanf(value, "%64s", conf.cam);
+        }
+        if(0==strcmp(parameter,"CAMINTERVAL")){
+            sscanf(value, "%" SCNu32, &conf.caminterval);
         }
         if(0==strcmp(parameter,"FRAME_US")){
             sscanf(value, "%" SCNu32 , &conf.frame_us);
@@ -322,12 +332,44 @@ henglongconf_t getconfig(char* conffilename)
 }
 
 
+typedef struct cam_ctrl_thread_t
+{
+    char* ip;
+    int up, down, cw, ccw, end;
+    uint32_t caminterval;
+} cam_ctrl_thread_t;
+
+
+void *cam_ctrl_thread_fcn(void* arg)
+{
+    printf("pthread cam_ctrl started\n");
+
+    cam_ctrl_thread_t* args;
+
+    args = (cam_ctrl_thread_t*) arg;
+
+    while(!args->end){
+        usleep(args->caminterval);
+        if(args->up) cam_up(args->ip);
+        if(args->down) cam_down(args->ip);
+        if(args->cw) cam_cw(args->ip);
+        if(args->ccw) cam_ccw(args->ip);
+    }
+
+    pthread_exit(0);
+}
+
+
 int main(int argc, char* argv[])
 {
-    pthread_t keybthread, joythread, refl_thread;
+
+
+
+    pthread_t keybthread, joythread, refl_thread, cam_ctrl_thread;
     input_thread_t keyboard_thread_args;
     input_thread_t joystick_thread_args;
     refl_thread_args_t refl_thread_args;
+    cam_ctrl_thread_t cam_ctrl_thread_args;
     int frame = 0;
     uint16_t frame_nbr;
     int sockfd, n_send;
@@ -335,6 +377,7 @@ int main(int argc, char* argv[])
     uint64_t time_us;
     henglongconf_t conf;
     RCdatagram_t senddata;
+    int updown, cwccw;
 
     if(2!=argc){
         printf("\nThis program is intented to be run on the PC as client to control the server on the heng long tank. \n\n USAGE: UDPclient client.config\n\n Copyright (C) 2014 Stefan Helmert <stefan.helmert@gmx.net>\n\n");
@@ -361,6 +404,19 @@ int main(int argc, char* argv[])
     }else{
         printf("no joystick!\n");
     }
+    if(conf.cam[0]){
+        cam_ctrl_thread_args.down = 0;
+        cam_ctrl_thread_args.up = 0;
+        cam_ctrl_thread_args.cw = 0;
+        cam_ctrl_thread_args.ccw = 0;
+        cam_ctrl_thread_args.end = 0;
+        cam_ctrl_thread_args.ip = conf.cam;
+        cam_ctrl_thread_args.caminterval = conf.caminterval;
+        if (pthread_create(&cam_ctrl_thread, NULL, cam_ctrl_thread_fcn , (void *) &cam_ctrl_thread_args)) printf("failed to create cam_ctrl thread\n");
+    }else{
+        printf("no cam config!\n");
+    }
+
 
     sockfd = socket(AF_INET,SOCK_DGRAM,0);
 
@@ -398,8 +454,33 @@ int main(int argc, char* argv[])
 
         senddata.outtty.motor_l = keyboard_thread_args.outtty.motor_l + joystick_thread_args.outtty.motor_l;
         senddata.outtty.motor_r = keyboard_thread_args.outtty.motor_r + joystick_thread_args.outtty.motor_r;
-        senddata.outtty.servo_pan += keyboard_thread_args.hl.pan_right - keyboard_thread_args.hl.pan_left + joystick_thread_args.hl.pan_right - joystick_thread_args.hl.pan_left;
-        senddata.outtty.servo_tilt += keyboard_thread_args.hl.tilt_up - keyboard_thread_args.hl.tilt_down + joystick_thread_args.hl.tilt_up - joystick_thread_args.hl.tilt_down;
+        cwccw = keyboard_thread_args.hl.pan_right - keyboard_thread_args.hl.pan_left + joystick_thread_args.hl.pan_right - joystick_thread_args.hl.pan_left;
+        updown = keyboard_thread_args.hl.tilt_up - keyboard_thread_args.hl.tilt_down + joystick_thread_args.hl.tilt_up - joystick_thread_args.hl.tilt_down;
+
+        senddata.outtty.servo_pan += cwccw;
+        senddata.outtty.servo_tilt += updown;
+
+        if(+1<=cwccw) {
+            cam_ctrl_thread_args.ccw = 1;
+            cam_ctrl_thread_args.cw = 0;
+        }else if(-1>=cwccw){
+            cam_ctrl_thread_args.ccw = 0;
+            cam_ctrl_thread_args.cw = 1;
+        }else{
+            cam_ctrl_thread_args.ccw = 0;
+            cam_ctrl_thread_args.cw = 0;
+        }
+        if(+1<=updown) {
+            cam_ctrl_thread_args.up = 1;
+            cam_ctrl_thread_args.down = 0;
+        }else if(-1>=updown){
+            cam_ctrl_thread_args.up = 0;
+            cam_ctrl_thread_args.down = 1;
+        }else{
+            cam_ctrl_thread_args.up = 0;
+            cam_ctrl_thread_args.down = 0;
+        }
+
 
         if(keyboard_thread_args.hl.ignation | joystick_thread_args.hl.ignation){
             senddata.outtty.servo_pan = 0;
