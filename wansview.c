@@ -69,3 +69,23 @@ int cam_ccw(char* ip)
 {
     return wvcamctrl(ip, 6);
 }
+
+
+int cam_nul(char* ip)
+{
+    int i;
+    for(i=0;i<20;i++){
+        usleep(300000);
+        cam_down(ip);
+    }
+    for(i=0;i<80;i++){
+
+        usleep(300000);
+        cam_ccw(ip);
+    }
+    for(i=0;i<40;i++){
+        usleep(300000);
+        cam_cw(ip);
+    }
+    return 0;
+}

@@ -89,19 +89,6 @@ void *keyboard_thread_fcn(void * arg)
             args->outtty.motor_r = (2*0b01111 - args->hl.velocity - args->hl.direction)*40;
             args->outtty.motor_l = (- args->hl.velocity + args->hl.direction)*40;
 
-            /*
-            args->outtty.servo_pan += args->hl.pan_left - args->hl.pan_right;
-            if(args->outtty.servo_pan>50) args->outtty.servo_pan = 50;
-            if(args->outtty.servo_pan<-50) args->outtty.servo_pan = -50;
-            if(args->outtty.servo_tilt>50) args->outtty.servo_tilt = 50;
-            if(args->outtty.servo_tilt<-50) args->outtty.servo_tilt = -50;
-            args->outtty.servo_tilt += args->hl.tilt_up - args->hl.tilt_down;
-            if(args->hl.ignation) {
-                args->outtty.servo_pan = 0;
-                args->outtty.servo_tilt= 0;
-            }
-            */
-
 
         }
         // quit
@@ -335,7 +322,7 @@ henglongconf_t getconfig(char* conffilename)
 typedef struct cam_ctrl_thread_t
 {
     char* ip;
-    int up, down, cw, ccw, end;
+    int up, down, cw, ccw, nul, end;
     uint32_t caminterval;
 } cam_ctrl_thread_t;
 
@@ -354,6 +341,10 @@ void *cam_ctrl_thread_fcn(void* arg)
         if(args->down) cam_down(args->ip);
         if(args->cw) cam_cw(args->ip);
         if(args->ccw) cam_ccw(args->ip);
+        if(args->nul) {
+            cam_nul(args->ip);
+            args->nul = 0;
+        }
     }
 
     pthread_exit(0);
@@ -362,8 +353,6 @@ void *cam_ctrl_thread_fcn(void* arg)
 
 int main(int argc, char* argv[])
 {
-
-
 
     pthread_t keybthread, joythread, refl_thread, cam_ctrl_thread;
     input_thread_t keyboard_thread_args;
@@ -434,6 +423,7 @@ int main(int argc, char* argv[])
     frame_nbr = 0;
     senddata.outtty.servo_pan = 0;
     senddata.outtty.servo_tilt = 0;
+    cam_ctrl_thread_args.nul = 1;
     while(1){
         usleep(conf.frame_us);
 
@@ -485,6 +475,7 @@ int main(int argc, char* argv[])
         if(keyboard_thread_args.hl.ignation | joystick_thread_args.hl.ignation){
             senddata.outtty.servo_pan = 0;
             senddata.outtty.servo_tilt = 0;
+            cam_ctrl_thread_args.nul = 1;
         }
 
         if(1022<senddata.outtty.motor_l) senddata.outtty.motor_l = 1023;
