@@ -8,7 +8,6 @@
 
 #include <sys/time.h>
 
-
 int wvcamctrl(char* ip, int cmd);
 int cam_down(char* ip);
 int cam_up(char* ip);

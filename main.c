@@ -22,7 +22,7 @@
 #include "henglong.h"
 #include <linux/joystick.h>
 #include "wansview.h"
-
+#include "extern.h"
 
 typedef struct outtty_t
 {
@@ -193,6 +193,7 @@ void *joystick_thread_fcn(void * arg)
 
         args->outtty = outttyloc;
         args->hl.ignation = (1 & (jsdata.buttons >> 2));
+        args->hl.fire = (1 & (jsdata.buttons >> 1));
 
         printf("%6d %6d %4x\n", jsdata.x, jsdata.y, jsdata.buttons);
     }
@@ -367,6 +368,7 @@ int main(int argc, char* argv[])
     henglongconf_t conf;
     RCdatagram_t senddata;
     int updown, cwccw;
+    int fire_old;
 
     if(2!=argc){
         printf("\nThis program is intented to be run on the PC as client to control the server on the heng long tank. \n\n USAGE: UDPclient client.config\n\n Copyright (C) 2014 Stefan Helmert <stefan.helmert@gmx.net>\n\n");
@@ -424,6 +426,7 @@ int main(int argc, char* argv[])
     senddata.outtty.servo_pan = 0;
     senddata.outtty.servo_tilt = 0;
     cam_ctrl_thread_args.nul = 1;
+    fire_old = 0;
     while(1){
         usleep(conf.frame_us);
 
@@ -488,6 +491,11 @@ int main(int argc, char* argv[])
         if(senddata.outtty.servo_tilt>50) senddata.outtty.servo_tilt = 50;
         if(senddata.outtty.servo_tilt<-50) senddata.outtty.servo_tilt = -50;
 
+        // Return-Button on Keyboard via Joystick-Fire for screenshot in Browser
+        if(0==fire_old & 1==joystick_thread_args.hl.fire){
+            fire();
+        }
+        fire_old = joystick_thread_args.hl.fire;
 
         n_send = sendto(sockfd, &senddata, sizeof(senddata), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
