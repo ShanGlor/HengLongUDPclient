@@ -4,6 +4,7 @@
 
 void fire(void)
 {
-    system("xte key Return");
+    system("echo bla");
+    system("xte \'key Return\'\n");
 }
 

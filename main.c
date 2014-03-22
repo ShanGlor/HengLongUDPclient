@@ -193,7 +193,7 @@ void *joystick_thread_fcn(void * arg)
 
         args->outtty = outttyloc;
         args->hl.ignation = (1 & (jsdata.buttons >> 2));
-        args->hl.fire = (1 & (jsdata.buttons >> 1));
+        args->hl.fire = (1 & (jsdata.buttons >> 0));
 
         printf("%6d %6d %4x\n", jsdata.x, jsdata.y, jsdata.buttons);
     }
