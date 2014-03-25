@@ -2,7 +2,7 @@
 
 #include "wansview.h"
 
-int wvcamctrl(char* ip, int cmd)
+int wvcamctrl(char* ip, char* username, char* password, int cmd)
 {
     int sockfd = 0, n = 0;
     char recvBuff[1024];
@@ -33,7 +33,7 @@ int wvcamctrl(char* ip, int cmd)
        return 1;
     }
 
-    sprintf(sendBuff, "GET /decoder_control.cgi?onestep=1&command=%d&user=chch&pwd=chch HTTP/1.1\r\nHost: %s\r\n\r\n", cmd, ip);
+    sprintf(sendBuff, "GET /decoder_control.cgi?onestep=1&command=%d&user=%s&pwd=%s HTTP/1.1\r\nHost: %s\r\n\r\n", cmd, username, password, ip);
 
     n = write(sockfd, sendBuff, strlen(sendBuff));
 
@@ -50,42 +50,43 @@ int wvcamctrl(char* ip, int cmd)
     return 0;
 }
 
-int cam_down(char* ip)
+int cam_down(char* ip, char* username, char* password)
 {
-    return wvcamctrl(ip, 0);
+    return wvcamctrl(ip, username, password, 0);
+
 }
 
-int cam_up(char* ip)
+int cam_up(char* ip, char* username, char* password)
 {
-    return wvcamctrl(ip, 2);
+    return wvcamctrl(ip, username, password, 2);
 }
 
-int cam_cw(char* ip)
+int cam_cw(char* ip, char* username, char* password)
 {
-    return wvcamctrl(ip, 4);
+    return wvcamctrl(ip, username, password, 4);
 }
 
-int cam_ccw(char* ip)
+int cam_ccw(char* ip, char* username, char* password)
 {
-    return wvcamctrl(ip, 6);
+    return wvcamctrl(ip, username, password, 6);
 }
 
 
-int cam_nul(char* ip)
+int cam_nul(char* ip, char* username, char* password)
 {
     int i;
     for(i=0;i<20;i++){
         usleep(300000);
-        cam_down(ip);
+        cam_down(ip, username, password);
     }
     for(i=0;i<80;i++){
 
         usleep(300000);
-        cam_ccw(ip);
+        cam_ccw(ip, username, password);
     }
     for(i=0;i<40;i++){
         usleep(300000);
-        cam_cw(ip);
+        cam_cw(ip, username, password);
     }
     return 0;
 }

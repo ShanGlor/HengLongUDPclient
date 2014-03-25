@@ -4,11 +4,11 @@
 	<File name="client.config" open="1" top="0" tabpos="4">
 		<Cursor position="114" topLine="0" />
 	</File>
-	<File name="extern.c" open="1" top="0" tabpos="7">
-		<Cursor position="0" topLine="0" />
+	<File name="extern.c" open="1" top="1" tabpos="7">
+		<Cursor position="41" topLine="0" />
 	</File>
-	<File name="extern.h" open="1" top="1" tabpos="8">
-		<Cursor position="94" topLine="0" />
+	<File name="extern.h" open="1" top="0" tabpos="8">
+		<Cursor position="127" topLine="0" />
 	</File>
 	<File name="henglong.c" open="1" top="0" tabpos="2">
 		<Cursor position="804" topLine="0" />
@@ -17,10 +17,10 @@
 		<Cursor position="564" topLine="0" />
 	</File>
 	<File name="main.c" open="1" top="0" tabpos="1">
-		<Cursor position="274" topLine="0" />
+		<Cursor position="14572" topLine="482" />
 	</File>
 	<File name="wansview.c" open="1" top="0" tabpos="5">
-		<Cursor position="1540" topLine="35" />
+		<Cursor position="861" topLine="32" />
 	</File>
 	<File name="wansview.h" open="1" top="0" tabpos="6">
 		<Cursor position="342" topLine="0" />

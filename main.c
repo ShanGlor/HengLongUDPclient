@@ -264,6 +264,8 @@ typedef struct henglongconf_t
     char joystickdevname[256];
     in_addr_t ip; // v4 only
     char cam[64];
+    char user[64];
+    char pwd[64];
     uint32_t caminterval;
     uint16_t port;
     uint8_t timeout;
@@ -288,6 +290,8 @@ henglongconf_t getconfig(char* conffilename)
     conf.joystickdevname[0] = 0;
     conf.cam[0] = 0;
     conf.caminterval = 100000;
+    conf.user[0] = 0;
+    conf.pwd[0] = 0;
     while(fgets(line, 256, configFile)){
         sscanf(line, "%16s %256s", parameter, value);
         if(0==strcmp(parameter,"KEYBOARD")){
@@ -298,6 +302,12 @@ henglongconf_t getconfig(char* conffilename)
         }
         if(0==strcmp(parameter,"CAM")){
             sscanf(value, "%64s", conf.cam);
+        }
+        if(0==strcmp(parameter,"USER")){
+            sscanf(value, "%64s", conf.user);
+        }
+        if(0==strcmp(parameter,"PWD")){
+            sscanf(value, "%64s", conf.pwd);
         }
         if(0==strcmp(parameter,"CAMINTERVAL")){
             sscanf(value, "%" SCNu32, &conf.caminterval);
@@ -323,6 +333,8 @@ henglongconf_t getconfig(char* conffilename)
 typedef struct cam_ctrl_thread_t
 {
     char* ip;
+    char* username;
+    char* password;
     int up, down, cw, ccw, nul, end;
     uint32_t caminterval;
 } cam_ctrl_thread_t;
@@ -338,12 +350,12 @@ void *cam_ctrl_thread_fcn(void* arg)
 
     while(!args->end){
         usleep(args->caminterval);
-        if(args->up) cam_up(args->ip);
-        if(args->down) cam_down(args->ip);
-        if(args->cw) cam_cw(args->ip);
-        if(args->ccw) cam_ccw(args->ip);
+        if(args->up) cam_up(args->ip, args->username, args->password);
+        if(args->down) cam_down(args->ip, args->username, args->password);
+        if(args->cw) cam_cw(args->ip, args->username, args->password);
+        if(args->ccw) cam_ccw(args->ip, args->username, args->password);
         if(args->nul) {
-            cam_nul(args->ip);
+            cam_nul(args->ip, args->username, args->password);
             args->nul = 0;
         }
     }
@@ -354,7 +366,6 @@ void *cam_ctrl_thread_fcn(void* arg)
 
 int main(int argc, char* argv[])
 {
-
     pthread_t keybthread, joythread, refl_thread, cam_ctrl_thread;
     input_thread_t keyboard_thread_args;
     input_thread_t joystick_thread_args;
@@ -403,6 +414,8 @@ int main(int argc, char* argv[])
         cam_ctrl_thread_args.end = 0;
         cam_ctrl_thread_args.ip = conf.cam;
         cam_ctrl_thread_args.caminterval = conf.caminterval;
+        cam_ctrl_thread_args.username = conf.user;
+        cam_ctrl_thread_args.password = conf.pwd;
         if (pthread_create(&cam_ctrl_thread, NULL, cam_ctrl_thread_fcn , (void *) &cam_ctrl_thread_args)) printf("failed to create cam_ctrl thread\n");
     }else{
         printf("no cam config!\n");

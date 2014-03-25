@@ -8,11 +8,11 @@
 
 #include <sys/time.h>
 
-int wvcamctrl(char* ip, int cmd);
-int cam_down(char* ip);
-int cam_up(char* ip);
-int cam_cw(char* ip);
-int cam_ccw(char* ip);
-int cam_nul(char* ip);
+int wvcamctrl(char* ip, char* username, char* password, int cmd);
+int cam_down(char* ip, char* username, char* password);
+int cam_up(char* ip, char* username, char* password);
+int cam_cw(char* ip, char* username, char* password);
+int cam_ccw(char* ip, char* username, char* password);
+int cam_nul(char* ip, char* username, char* password);
 
 #endif // WANSVIEW_H_INCLUDED

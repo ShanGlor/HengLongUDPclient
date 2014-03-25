@@ -29,7 +29,7 @@
 	<stdio.h>
 	<inttypes.h>
 
-1394056611 source:/home/chch/HengLongUDPclient/main.c
+1395763961 source:/home/chch/HengLongUDPclient/main.c
 	<pthread.h>
 	<stdio.h>
 	<stdlib.h>
@@ -52,13 +52,14 @@
 	"henglong.h"
 	<linux/joystick.h>
 	"wansview.h"
+	"extern.h"
 
-1393293088 /home/chch/HengLongUDPclient/henglong.h
+1395699958 /home/chch/HengLongUDPclient/henglong.h
 	<linux/input.h>
 	<stdio.h>
 	<inttypes.h>
 
-1393293088 source:/home/chch/HengLongUDPclient/henglong.c
+1395699958 source:/home/chch/HengLongUDPclient/henglong.c
 	"henglong.h"
 
 1393274981 source:/home/stefan/Proj/HengLongUDPclient/henglong.c
@@ -102,14 +103,14 @@
 1393290504 source:/home/stefan/Proj/HengLongUDPclient/wansview.c
 	"wansview.h"
 
-1394056760 /home/chch/HengLongUDPclient/wansview.h
+1395762040 /home/chch/HengLongUDPclient/wansview.h
 	<stdio.h>
 	<string.h>
 	<unistd.h>
 	<arpa/inet.h>
 	<sys/time.h>
 
-1394060723 source:/home/chch/HengLongUDPclient/wansview.c
+1395763555 source:/home/chch/HengLongUDPclient/wansview.c
 	"wansview.h"
 
 1395529103 source:/root/HengLongUDPclient/henglong.c
@@ -157,4 +158,10 @@
 
 1395529103 source:/root/HengLongUDPclient/wansview.c
 	"wansview.h"
+
+1395761599 source:/home/chch/HengLongUDPclient/extern.c
+	"extern.h"
+
+1395699958 /home/chch/HengLongUDPclient/extern.h
+	<stdlib.h>
 
