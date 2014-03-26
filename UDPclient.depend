@@ -29,7 +29,7 @@
 	<stdio.h>
 	<inttypes.h>
 
-1395763961 source:/home/chch/HengLongUDPclient/main.c
+1395876570 source:/home/chch/HengLongUDPclient/main.c
 	<pthread.h>
 	<stdio.h>
 	<stdlib.h>
@@ -53,6 +53,7 @@
 	<linux/joystick.h>
 	"wansview.h"
 	"extern.h"
+	"checkvideo.h"
 
 1395699958 /home/chch/HengLongUDPclient/henglong.h
 	<linux/input.h>
@@ -110,7 +111,7 @@
 	<arpa/inet.h>
 	<sys/time.h>
 
-1395763555 source:/home/chch/HengLongUDPclient/wansview.c
+1395764006 source:/home/chch/HengLongUDPclient/wansview.c
 	"wansview.h"
 
 1395529103 source:/root/HengLongUDPclient/henglong.c
@@ -164,4 +165,13 @@
 
 1395699958 /home/chch/HengLongUDPclient/extern.h
 	<stdlib.h>
+
+1395871885 /home/chch/HengLongUDPclient/checkvideo.h
+	<stdio.h>
+	<stdlib.h>
+	<inttypes.h>
+	<arpa/inet.h>
+
+1395876458 source:/home/chch/HengLongUDPclient/checkvideo.c
+	"checkvideo.h"
 

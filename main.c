@@ -23,6 +23,7 @@
 #include <linux/joystick.h>
 #include "wansview.h"
 #include "extern.h"
+#include "checkvideo.h"
 
 typedef struct outtty_t
 {
@@ -264,10 +265,11 @@ typedef struct henglongconf_t
     char joystickdevname[256];
     in_addr_t ip; // v4 only
     char cam[64];
+    char video[16];
     char user[64];
     char pwd[64];
     uint32_t caminterval;
-    uint16_t port;
+    uint16_t port, videoport;
     uint8_t timeout;
     uint8_t clinbr;
 } henglongconf_t;
@@ -292,6 +294,8 @@ henglongconf_t getconfig(char* conffilename)
     conf.caminterval = 100000;
     conf.user[0] = 0;
     conf.pwd[0] = 0;
+    conf.video[0] = 0;
+    conf.videoport = 0;
     while(fgets(line, 256, configFile)){
         sscanf(line, "%16s %256s", parameter, value);
         if(0==strcmp(parameter,"KEYBOARD")){
@@ -324,6 +328,9 @@ henglongconf_t getconfig(char* conffilename)
         }
         if(0==strcmp(parameter,"CLINBR")){
             sscanf(value, "%" SCNu8 , &conf.clinbr);
+        }
+        if(0==strcmp(parameter,"VIDEO")){
+            sscanf(value, "%16[^:]:%" SCNu16, conf.video, &conf.videoport);
         }
     }
     return conf;
@@ -366,6 +373,7 @@ void *cam_ctrl_thread_fcn(void* arg)
 
 int main(int argc, char* argv[])
 {
+
     pthread_t keybthread, joythread, refl_thread, cam_ctrl_thread;
     input_thread_t keyboard_thread_args;
     input_thread_t joystick_thread_args;
@@ -443,6 +451,11 @@ int main(int argc, char* argv[])
     while(1){
         usleep(conf.frame_us);
 
+        // do not send control commands if live video is not watched
+        if(0==checkvideo(conf.video, conf.videoport)){
+            printf("No video stream connection from %s:%u, remote control locked!\n", conf.video, conf.videoport);
+            continue;
+        }
         frame = 0xc0ffee;
 
         time_us = get_us();
@@ -505,7 +518,7 @@ int main(int argc, char* argv[])
         if(senddata.outtty.servo_tilt<-50) senddata.outtty.servo_tilt = -50;
 
         // Return-Button on Keyboard via Joystick-Fire for screenshot in Browser
-        if(0==fire_old & 1==joystick_thread_args.hl.fire){
+        if((0==fire_old) & (1==joystick_thread_args.hl.fire)){
             fire();
         }
         fire_old = joystick_thread_args.hl.fire;
