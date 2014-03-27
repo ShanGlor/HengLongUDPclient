@@ -1,7 +1,7 @@
 
 #include "checkvideo.h"
 
-int connectionstate(char* remip, uint16_t remport)
+int connectionstate(char* remip, uint16_t remport, uint32_t state)
 {
     FILE* tcpfile;
     char line[256];
@@ -15,9 +15,9 @@ int connectionstate(char* remip, uint16_t remport)
     tcpfile = fopen("/proc/net/tcp","r");
     while(fgets(line,256,tcpfile)){
         sscanf(line, "%*u: %*x:%*x %x:%x %x", &remipi, &remporti, &statei);
-        if((inet_addr(remip)==remipi) & (remport==remporti)) {
+        if((inet_addr(remip)==remipi) & (remport==remporti) & (state==statei)) {
             fclose(tcpfile);
-            return statei;
+            return 1;
         }
     }
     fclose(tcpfile);
@@ -27,6 +27,6 @@ int connectionstate(char* remip, uint16_t remport)
 int checkvideo(char* remip, uint16_t remport)
 {
     if(0==remip[0]) return 2;
-    if(1==connectionstate(remip, remport)) return 1;
+    if(1==connectionstate(remip, remport, 1)) return 1;
     return 0;
 }

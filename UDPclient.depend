@@ -29,7 +29,7 @@
 	<stdio.h>
 	<inttypes.h>
 
-1395876570 source:/home/chch/HengLongUDPclient/main.c
+1395876660 source:/home/chch/HengLongUDPclient/main.c
 	<pthread.h>
 	<stdio.h>
 	<stdlib.h>
@@ -166,7 +166,7 @@
 1395699958 /home/chch/HengLongUDPclient/extern.h
 	<stdlib.h>
 
-1395871885 /home/chch/HengLongUDPclient/checkvideo.h
+1395878228 /home/chch/HengLongUDPclient/checkvideo.h
 	<stdio.h>
 	<stdlib.h>
 	<inttypes.h>

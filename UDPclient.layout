@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <CodeBlocks_layout_file>
 	<ActiveTarget name="Debug" />
-	<File name="client.config" open="1" top="1" tabpos="8">
-		<Cursor position="66" topLine="0" />
+	<File name="checkvideo.c" open="1" top="1" tabpos="9">
+		<Cursor position="551" topLine="8" />
+	</File>
+	<File name="checkvideo.h" open="1" top="0" tabpos="10">
+		<Cursor position="208" topLine="0" />
+	</File>
+	<File name="client.config" open="1" top="0" tabpos="8">
+		<Cursor position="122" topLine="0" />
 	</File>
 	<File name="extern.c" open="1" top="0" tabpos="6">
 		<Cursor position="41" topLine="0" />
@@ -17,10 +23,10 @@
 		<Cursor position="564" topLine="0" />
 	</File>
 	<File name="main.c" open="1" top="0" tabpos="1">
-		<Cursor position="9478" topLine="499" />
+		<Cursor position="12726" topLine="438" />
 	</File>
 	<File name="wansview.c" open="1" top="0" tabpos="4">
-		<Cursor position="941" topLine="3" />
+		<Cursor position="941" topLine="0" />
 	</File>
 	<File name="wansview.h" open="1" top="0" tabpos="5">
 		<Cursor position="534" topLine="0" />

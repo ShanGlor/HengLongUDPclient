@@ -35,6 +35,10 @@
 		<Linker>
 			<Add option="-pthread" />
 		</Linker>
+		<Unit filename="checkvideo.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="checkvideo.h" />
 		<Unit filename="client.config" />
 		<Unit filename="extern.c">
 			<Option compilerVar="CC" />
