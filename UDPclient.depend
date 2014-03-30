@@ -172,6 +172,17 @@
 	<inttypes.h>
 	<arpa/inet.h>
 
-1395876458 source:/home/chch/HengLongUDPclient/checkvideo.c
+1395878369 source:/home/chch/HengLongUDPclient/checkvideo.c
 	"checkvideo.h"
+
+1396204073 source:/home/chch/HengLongUDPclient/checkkillswitch.c
+	"checkkillswitch.h"
+
+1396202748 /home/chch/HengLongUDPclient/checkkillswitch.h
+	<stdio.h>
+	<string.h>
+	<unistd.h>
+	<arpa/inet.h>
+	<string.h>
+	<sys/time.h>
 

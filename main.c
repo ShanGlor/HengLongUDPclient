@@ -24,6 +24,7 @@
 #include "wansview.h"
 #include "extern.h"
 #include "checkvideo.h"
+#include "checkkillswitch.h"
 
 typedef struct outtty_t
 {
@@ -266,10 +267,12 @@ typedef struct henglongconf_t
     in_addr_t ip; // v4 only
     char cam[64];
     char video[16];
+    char killsw[16];
+    char killurl[256];
     char user[64];
     char pwd[64];
     uint32_t caminterval;
-    uint16_t port, videoport;
+    uint16_t port, videoport, killport;
     uint8_t timeout;
     uint8_t clinbr;
 } henglongconf_t;
@@ -296,6 +299,9 @@ henglongconf_t getconfig(char* conffilename)
     conf.pwd[0] = 0;
     conf.video[0] = 0;
     conf.videoport = 0;
+    conf.killsw[0] = 0;
+    conf.killport = 0;
+    conf.killurl[0] = 0;
     while(fgets(line, 256, configFile)){
         sscanf(line, "%16s %256s", parameter, value);
         if(0==strcmp(parameter,"KEYBOARD")){
@@ -331,6 +337,9 @@ henglongconf_t getconfig(char* conffilename)
         }
         if(0==strcmp(parameter,"VIDEO")){
             sscanf(value, "%16[^:]:%" SCNu16, conf.video, &conf.videoport);
+        }
+        if(0==strcmp(parameter,"KILLSW")){
+            sscanf(value, "%16[^:]:%" SCNu16 "%256s", conf.killsw, &conf.killport, conf.killurl);
         }
     }
     return conf;
@@ -373,6 +382,7 @@ void *cam_ctrl_thread_fcn(void* arg)
 
 int main(int argc, char* argv[])
 {
+
 
     pthread_t keybthread, joythread, refl_thread, cam_ctrl_thread;
     input_thread_t keyboard_thread_args;
@@ -456,6 +466,11 @@ int main(int argc, char* argv[])
             printf("No video stream connection from %s:%u, remote control locked!\n", conf.video, conf.videoport);
             continue;
         }
+        if(0==checkkillswitch(conf.killsw,conf.killport,conf.killurl)){
+            printf("Killswitch pressed or no connection.!\n");
+            continue;
+        }
+
         frame = 0xc0ffee;
 
         time_us = get_us();
