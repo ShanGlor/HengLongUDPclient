@@ -9,7 +9,7 @@
 #include <sys/time.h>
 
 
-int getPage(char* ip, uint16_t port, char* url, char* recvBuffer, uint32_t size);
-int checkkillswitch(char* ip, uint16_t port, char* url);
+int getPage(char* ip, uint16_t port, char* url, char* recvBuffer, uint32_t size, uint32_t timeout_us);
+int checkkillswitch(char* ip, uint16_t port, char* url, uint32_t timeout_us);
 
 #endif // CHECKKILLSWITCH_H_INCLUDED

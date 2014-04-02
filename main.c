@@ -275,6 +275,7 @@ typedef struct henglongconf_t
     uint16_t port, videoport, killport;
     uint8_t timeout;
     uint8_t clinbr;
+    uint32_t killswtimeoutus;
 } henglongconf_t;
 
 henglongconf_t getconfig(char* conffilename)
@@ -302,6 +303,7 @@ henglongconf_t getconfig(char* conffilename)
     conf.killsw[0] = 0;
     conf.killport = 0;
     conf.killurl[0] = 0;
+    conf.killswtimeoutus = 500000;
     while(fgets(line, 256, configFile)){
         sscanf(line, "%16s %256s", parameter, value);
         if(0==strcmp(parameter,"KEYBOARD")){
@@ -340,6 +342,9 @@ henglongconf_t getconfig(char* conffilename)
         }
         if(0==strcmp(parameter,"KILLSW")){
             sscanf(value, "%16[^:]:%" SCNu16 "%256s", conf.killsw, &conf.killport, conf.killurl);
+        }
+        if(0==strcmp(parameter,"KILLSWTO_US")){
+            sscanf(value, "%" SCNu32 , &conf.killswtimeoutus);
         }
     }
     return conf;
@@ -380,14 +385,37 @@ void *cam_ctrl_thread_fcn(void* arg)
 }
 
 
+typedef struct killsw_thread_t
+{
+    char* ip;
+    uint16_t port;
+    char* url;
+    uint32_t timeout_us;
+    int state;
+} killsw_thread_t;
+
+void *killsw_thread_fcn(void* arg)
+{
+    printf("pthread killsw started\n");
+    killsw_thread_t* args;
+    args = (killsw_thread_t*) arg;
+    args->state = 0;
+    while(1){
+            args->state = checkkillswitch(args->ip, args->port, args->url, args->timeout_us);
+    }
+    pthread_exit(0);
+}
+
+
 int main(int argc, char* argv[])
 {
 
 
-    pthread_t keybthread, joythread, refl_thread, cam_ctrl_thread;
+    pthread_t keybthread, joythread, refl_thread, cam_ctrl_thread, killsw_thread;
     input_thread_t keyboard_thread_args;
     input_thread_t joystick_thread_args;
     refl_thread_args_t refl_thread_args;
+    killsw_thread_t killsw_thread_args;
     cam_ctrl_thread_t cam_ctrl_thread_args;
     int frame = 0;
     uint16_t frame_nbr;
@@ -438,7 +466,17 @@ int main(int argc, char* argv[])
     }else{
         printf("no cam config!\n");
     }
-
+    killsw_thread_args.state = 1; // default, wenn kein Killswitch konfiguriert - immer an
+    if(conf.killsw[0]){
+        killsw_thread_args.ip = conf.killsw;
+        killsw_thread_args.port = conf.killport;
+        killsw_thread_args.url = conf.killurl;
+        killsw_thread_args.state = 0;
+        killsw_thread_args.timeout_us = conf.killswtimeoutus;
+        if (pthread_create(&killsw_thread, NULL, killsw_thread_fcn , (void *) &killsw_thread_args)) printf("failed to create killsw thread\n");
+    }else{
+        printf("no killswitch!\n");
+    }
 
     sockfd = socket(AF_INET,SOCK_DGRAM,0);
 
@@ -466,7 +504,7 @@ int main(int argc, char* argv[])
             printf("No video stream connection from %s:%u, remote control locked!\n", conf.video, conf.videoport);
             continue;
         }
-        if(0==checkkillswitch(conf.killsw,conf.killport,conf.killurl)){
+        if(0==killsw_thread_args.state){
             printf("Killswitch pressed or no connection.!\n");
             continue;
         }
