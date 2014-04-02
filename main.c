@@ -541,7 +541,7 @@ int main(int argc, char* argv[])
         n_send = sendto(sockfd, &senddata, sizeof(senddata), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
         printf("SEND FRAME -- FRM_NBR: %5d,               BYTES send: %3d, SEND_FRM: %#x, CLINBR: %d, CLISEL: %d, SERVOFF: %d\n", frame_nbr, n_send, frame, senddata.clinbr, senddata.clisel, senddata.servoff);
-        if(pthread_kill(keybthread, 0)) break;
+        if(keyboard_thread_args.filename[0]) if(pthread_kill(keybthread, 0)) break;
     }
 
     return 0;

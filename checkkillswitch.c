@@ -52,7 +52,7 @@ int checkkillswitch(char* ip, uint16_t port, char* url)
 {
     char rb[1024];
     int n;
-    if(0==ip[0]) return 0;
+    if(0==ip[0]) return 1;
     getPage(ip, port, url, rb, sizeof(rb));
     n = strstr(rb, "true");
     if(NULL != n) return 1;
