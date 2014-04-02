@@ -40,8 +40,6 @@ int getPage(char* ip, uint16_t port, char* url, char* recvBuffer, uint32_t size)
     n = read(sockfd, recvBuffer, size-1);
     recvBuffer[n] = 0;
 
-    printf("%s\n", recvBuffer);
-
     if(n < 0)
     {
         printf("\n Read error \n");

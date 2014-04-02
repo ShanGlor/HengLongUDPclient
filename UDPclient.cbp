@@ -35,6 +35,10 @@
 		<Linker>
 			<Add option="-pthread" />
 		</Linker>
+		<Unit filename="checkkillswitch.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="checkkillswitch.h" />
 		<Unit filename="checkvideo.c">
 			<Option compilerVar="CC" />
 		</Unit>

@@ -29,7 +29,7 @@
 	<stdio.h>
 	<inttypes.h>
 
-1395876660 source:/home/chch/HengLongUDPclient/main.c
+1396204130 source:/home/chch/HengLongUDPclient/main.c
 	<pthread.h>
 	<stdio.h>
 	<stdlib.h>
@@ -54,6 +54,7 @@
 	"wansview.h"
 	"extern.h"
 	"checkvideo.h"
+	"checkkillswitch.h"
 
 1395699958 /home/chch/HengLongUDPclient/henglong.h
 	<linux/input.h>
