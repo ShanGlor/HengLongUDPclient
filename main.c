@@ -276,6 +276,7 @@ typedef struct henglongconf_t
     uint8_t timeout;
     uint8_t clinbr;
     uint32_t killswtimeoutus;
+    uint32_t killswint;
 } henglongconf_t;
 
 henglongconf_t getconfig(char* conffilename)
@@ -304,6 +305,7 @@ henglongconf_t getconfig(char* conffilename)
     conf.killport = 0;
     conf.killurl[0] = 0;
     conf.killswtimeoutus = 500000;
+    conf.killswint = 100000;
     while(fgets(line, 256, configFile)){
         sscanf(line, "%16s %256s", parameter, value);
         if(0==strcmp(parameter,"KEYBOARD")){
@@ -345,6 +347,9 @@ henglongconf_t getconfig(char* conffilename)
         }
         if(0==strcmp(parameter,"KILLSWTO_US")){
             sscanf(value, "%" SCNu32 , &conf.killswtimeoutus);
+        }
+        if(0==strcmp(parameter,"KILLSWINT")){
+            sscanf(value, "%" SCNu32, &conf.killswint);
         }
     }
     return conf;
@@ -391,6 +396,7 @@ typedef struct killsw_thread_t
     uint16_t port;
     char* url;
     uint32_t timeout_us;
+    uint32_t killswint;
     int state;
 } killsw_thread_t;
 
@@ -401,7 +407,8 @@ void *killsw_thread_fcn(void* arg)
     args = (killsw_thread_t*) arg;
     args->state = 0;
     while(1){
-            args->state = checkkillswitch(args->ip, args->port, args->url, args->timeout_us);
+        usleep(args->killswint);
+        args->state = checkkillswitch(args->ip, args->port, args->url, args->timeout_us);
     }
     pthread_exit(0);
 }
@@ -473,6 +480,7 @@ int main(int argc, char* argv[])
         killsw_thread_args.url = conf.killurl;
         killsw_thread_args.state = 0;
         killsw_thread_args.timeout_us = conf.killswtimeoutus;
+        killsw_thread_args.killswint = conf.killswint;
         if (pthread_create(&killsw_thread, NULL, killsw_thread_fcn , (void *) &killsw_thread_args)) printf("failed to create killsw thread\n");
     }else{
         printf("no killswitch!\n");
